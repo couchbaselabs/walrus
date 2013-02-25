@@ -42,6 +42,27 @@ func NewBucket(bucketName string) Bucket {
 	}
 }
 
+var buckets map[[3]string]Bucket
+var bucketsLock sync.Mutex
+
+// Returns an in-memory Bucket specific to the given (url, pool, bucketname) tuple.
+// That is, passing the same parameters will return the same Bucket.
+func GetBucket(url, poolName, bucketName string) (Bucket, error) {
+	bucketsLock.Lock()
+	defer bucketsLock.Unlock()
+
+	if buckets == nil {
+		buckets = make(map[[3]string]Bucket)
+	}
+	key := [3]string{url, poolName, bucketName}
+	bucket := buckets[key]
+	if bucket == nil {
+		bucket = NewBucket(bucketName)
+		buckets[key] = bucket
+	}
+	return bucket, nil
+}
+
 // Generates the next sequence number to assign to a document update. (Use only while locked)
 func (bucket *lolrus) _nextSequence() uint64 {
 	bucket.lastSeq++
