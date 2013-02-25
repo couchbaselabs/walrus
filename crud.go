@@ -33,7 +33,8 @@ type lolrusDoc struct {
 }
 
 // Creates a simple in-memory Bucket, suitable only for amusement purposes & testing.
-func NewLolrusBucket(bucketName string) Bucket {
+// The Bucket is created empty. There is no way to save it persistently. The name is ignored.
+func NewBucket(bucketName string) Bucket {
 	return &lolrus{
 		name:       bucketName,
 		docs:       map[string]*lolrusDoc{},
@@ -41,7 +42,7 @@ func NewLolrusBucket(bucketName string) Bucket {
 	}
 }
 
-// Generates the next sequence number to assign to a document update.
+// Generates the next sequence number to assign to a document update. (Use only while locked)
 func (bucket *lolrus) _nextSequence() uint64 {
 	bucket.lastSeq++
 	return bucket.lastSeq
