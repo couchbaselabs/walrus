@@ -18,18 +18,9 @@ type lolrusView struct {
 type lolrusDesignDoc map[string]*lolrusView
 
 func (bucket *lolrus) PutDDoc(docname string, value interface{}) error {
-	source, err := json.Marshal(value)
+	design, err := CheckDDoc(value)
 	if err != nil {
 		return err
-	}
-
-	var design DesignDoc
-	if err := json.Unmarshal(source, &design); err != nil {
-		return err
-	}
-
-	if design.Language != "" && design.Language != "javascript" {
-		return fmt.Errorf("Lolrus design docs don't support language %q", design.Language)
 	}
 
 	ddoc := lolrusDesignDoc{}
@@ -50,6 +41,25 @@ func (bucket *lolrus) PutDDoc(docname string, value interface{}) error {
 
 	bucket.designDocs[docname] = ddoc
 	return nil
+}
+
+func CheckDDoc(value interface{}) (*DesignDoc, error) {
+	source, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+
+	var design DesignDoc
+	if err := json.Unmarshal(source, &design); err != nil {
+		return nil, err
+	}
+
+	if design.Language != "" && design.Language != "javascript" {
+		return nil, fmt.Errorf("Lolrus design docs don't support language %q",
+			design.Language)
+	}
+
+	return &design, nil
 }
 
 // Looks up a lolrusView, and its current index if it's up-to-date enough.
