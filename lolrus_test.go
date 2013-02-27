@@ -110,6 +110,16 @@ func TestView(t *testing.T) {
 		Doc: &expectedDoc})
 }
 
+func TestCheckDDoc(t *testing.T) {
+	ddoc := DesignDoc{Views: ViewMap{"view1": ViewDef{Map: `function(doc){if (doc.key) emit(doc.key,doc.value)}`}}}
+	_, err := CheckDDoc(&ddoc)
+	assertNoError(t, err, "CheckDDoc should have worked")
+
+	ddoc = DesignDoc{Language: "go"}
+	_, err = CheckDDoc(&ddoc)
+	assertTrue(t, err != nil, "CheckDDoc should have rejected non-JS")
+}
+
 //////// HELPERS:
 
 func assertNoError(t *testing.T, err error, message string) {

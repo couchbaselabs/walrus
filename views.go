@@ -18,18 +18,9 @@ type lolrusView struct {
 type lolrusDesignDoc map[string]*lolrusView
 
 func (bucket *lolrus) PutDDoc(docname string, value interface{}) error {
-	source, err := json.Marshal(value)
+	design, err := CheckDDoc(value)
 	if err != nil {
 		return err
-	}
-
-	var design DesignDoc
-	if err := json.Unmarshal(source, &design); err != nil {
-		return err
-	}
-
-	if design.Language != "" && design.Language != "javascript" {
-		return fmt.Errorf("Lolrus design docs don't support language %q", design.Language)
 	}
 
 	ddoc := lolrusDesignDoc{}
@@ -50,6 +41,26 @@ func (bucket *lolrus) PutDDoc(docname string, value interface{}) error {
 
 	bucket.designDocs[docname] = ddoc
 	return nil
+}
+
+// Validates a design document.
+func CheckDDoc(value interface{}) (*DesignDoc, error) {
+	source, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+
+	var design DesignDoc
+	if err := json.Unmarshal(source, &design); err != nil {
+		return nil, err
+	}
+
+	if design.Language != "" && design.Language != "javascript" {
+		return nil, fmt.Errorf("Lolrus design docs don't support language %q",
+			design.Language)
+	}
+
+	return &design, nil
 }
 
 // Looks up a lolrusView, and its current index if it's up-to-date enough.
@@ -78,21 +89,10 @@ func (bucket *lolrus) View(docName, viewName string, params map[string]interface
 	// Note: This method itself doesn't lock, so it shouldn't access bucket fields directly.
 	ohai("View(%q, %q) ...", docName, viewName)
 
-	// Extract view options:
-	var includeDocs bool
-	var limit int
-	reverse := false
 	stale := true
-	reduce := true
 	if params != nil {
-		includeDocs, _ = params["include_docs"].(bool)
-		limit, _ = params["limit"].(int)
-		reverse, _ = params["reverse"].(bool)
 		if staleParam, found := params["stale"].(bool); found {
 			stale = staleParam
-		}
-		if reduceParam, found := params["reduce"].(bool); found {
-			reduce = reduceParam
 		}
 	}
 
@@ -107,54 +107,7 @@ func (bucket *lolrus) View(docName, viewName string, params map[string]interface
 		result = bucket.updateView(view, 0)
 	}
 
-	// Apply view options:
-
-	if reverse {
-		//TODO: Apply "reverse" option
-		return result, fmt.Errorf("Reverse is not supported yet, sorry")
-	}
-
-	startkey := params["startkey"]
-	if startkey != nil {
-		i := sort.Search(len(result.Rows), func(i int) bool {
-			return CollateJSON(result.Rows[i].Key, startkey) >= 0
-		})
-		result.Rows = result.Rows[i:]
-	}
-
-	if limit > 0 && len(result.Rows) > limit {
-		result.Rows = result.Rows[:limit]
-	}
-
-	endkey := params["endkey"]
-	if endkey != nil {
-		i := sort.Search(len(result.Rows), func(i int) bool {
-			return CollateJSON(result.Rows[i].Key, endkey) > 0
-		})
-		result.Rows = result.Rows[:i]
-	}
-
-	if includeDocs {
-		newRows := make(ViewRows, len(result.Rows))
-		for i, row := range result.Rows {
-			//OPT: This may unmarshal the same doc more than once
-			raw := bucket.docs[row.ID].raw
-			var parsedDoc interface{}
-			json.Unmarshal(raw, &parsedDoc)
-			newRows[i] = row
-			newRows[i].Doc = &parsedDoc
-		}
-		result.Rows = newRows
-	}
-
-	if reduce && view.reduceFunction != "" {
-		//TODO: Apply reduce function!!
-		return result, fmt.Errorf("Reduce is not supported yet, sorry")
-	}
-
-	result.TotalRows = len(result.Rows)
-	ohai("\t... returned %d rows", result.TotalRows)
-	return result, nil
+	return ProcessViewResult(result, params, bucket, view.reduceFunction)
 }
 
 // Updates the view index if necessary, and returns it.
@@ -202,4 +155,72 @@ func (bucket *lolrus) ViewCustom(ddoc, name string, params map[string]interface{
 	}
 	marshaled, _ := json.Marshal(result)
 	return json.Unmarshal(marshaled, vres)
+}
+
+// Applies view params (startkey/endkey, limit, etc) against a ViewResult.
+func ProcessViewResult(result ViewResult, params map[string]interface{},
+	bucket Bucket, reduceFunction string) (ViewResult, error) {
+	includeDocs := false
+	limit := 0
+	reverse := false
+	reduce := true
+
+	if params != nil {
+		includeDocs, _ = params["include_docs"].(bool)
+		limit, _ = params["limit"].(int)
+		reverse, _ = params["reverse"].(bool)
+		if reduceParam, found := params["reduce"].(bool); found {
+			reduce = reduceParam
+		}
+	}
+
+	if reverse {
+		//TODO: Apply "reverse" option
+		return result, fmt.Errorf("Reverse is not supported yet, sorry")
+	}
+
+	startkey := params["startkey"]
+	if startkey != nil {
+		i := sort.Search(len(result.Rows), func(i int) bool {
+			return CollateJSON(result.Rows[i].Key, startkey) >= 0
+		})
+		result.Rows = result.Rows[i:]
+	}
+
+	if limit > 0 && len(result.Rows) > limit {
+		result.Rows = result.Rows[:limit]
+	}
+
+	endkey := params["endkey"]
+	if endkey != nil {
+		i := sort.Search(len(result.Rows), func(i int) bool {
+			return CollateJSON(result.Rows[i].Key, endkey) > 0
+		})
+		result.Rows = result.Rows[:i]
+	}
+
+	if includeDocs {
+		newRows := make(ViewRows, len(result.Rows))
+		for i, row := range result.Rows {
+			//OPT: This may unmarshal the same doc more than once
+			raw, err := bucket.GetRaw(row.ID)
+			if err != nil {
+				return result, err
+			}
+			var parsedDoc interface{}
+			json.Unmarshal(raw, &parsedDoc)
+			newRows[i] = row
+			newRows[i].Doc = &parsedDoc
+		}
+		result.Rows = newRows
+	}
+
+	if reduce && reduceFunction != "" {
+		//TODO: Apply reduce function!!
+		return result, fmt.Errorf("Reduce is not supported yet, sorry")
+	}
+
+	result.TotalRows = len(result.Rows)
+	ohai("\t... view returned %d rows", result.TotalRows)
+	return result, nil
 }
