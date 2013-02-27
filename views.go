@@ -76,6 +76,7 @@ func (bucket *lolrus) findView(docName, viewName string, staleOK bool) (view *lo
 
 func (bucket *lolrus) View(docName, viewName string, params map[string]interface{}) (ViewResult, error) {
 	// Note: This method itself doesn't lock, so it shouldn't access bucket fields directly.
+	ohai("View(%q, %q) ...", docName, viewName)
 
 	// Extract view options:
 	var includeDocs bool
@@ -152,6 +153,7 @@ func (bucket *lolrus) View(docName, viewName string, params map[string]interface
 	}
 
 	result.TotalRows = len(result.Rows)
+	ohai("\t... returned %d rows", result.TotalRows)
 	return result, nil
 }
 

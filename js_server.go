@@ -12,6 +12,7 @@ package walrus
 import (
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/robertkrimen/otto"
 )
@@ -38,6 +39,16 @@ type JSServer struct {
 // 'funcSource' should look like "function(x,y) { ... }"
 func NewJSServer(funcSource string) (*JSServer, error) {
 	server := &JSServer{js: otto.New(), fn: otto.UndefinedValue()}
+
+	server.DefineNativeFunction("log", func(call otto.FunctionCall) otto.Value {
+		var output string
+		for _, arg := range call.ArgumentList {
+			str, _ := arg.ToString()
+			output += str + " "
+		}
+		log.Printf("JS: %s", output)
+		return otto.UndefinedValue()
+	})
 
 	if _, err := server.setFunction(funcSource); err != nil {
 		return nil, err

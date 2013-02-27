@@ -9,7 +9,10 @@
 
 package walrus
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+)
 
 // Abstract storage interface based on Bucket from the go-couchbase package.
 // A Bucket is a key-value store with a map/reduce query interface, as found in Couchbase Server 2.
@@ -78,4 +81,14 @@ func (rows ViewRows) Swap(i, j int) {
 
 func (rows ViewRows) Less(i, j int) bool {
 	return CollateJSON(rows[i].Key, rows[j].Key) < 0
+}
+
+// Set this to true to enable logging
+
+var Logging bool
+
+func ohai(fmt string, args ...interface{}) {
+	if Logging {
+		log.Printf("Walrus: "+fmt, args...)
+	}
 }
