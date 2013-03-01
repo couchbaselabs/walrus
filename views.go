@@ -3,6 +3,7 @@ package walrus
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 )
 
@@ -23,6 +24,27 @@ func (bucket *lolrus) PutDDoc(docname string, value interface{}) error {
 		return err
 	}
 
+	bucket.lock.Lock()
+	defer bucket.lock.Unlock()
+
+	if reflect.DeepEqual(design, bucket.DesignDocs[docname]) {
+		return nil // unchanged
+	}
+
+	err = bucket._compileDesignDoc(docname, design)
+	if err != nil {
+		return err
+	}
+
+	bucket.DesignDocs[docname] = design
+	bucket._saveSoon()
+	return nil
+}
+
+func (bucket *lolrus) _compileDesignDoc(docname string, design *DesignDoc) error {
+	if design == nil {
+		return nil
+	}
 	ddoc := lolrusDesignDoc{}
 	for name, fns := range design.Views {
 		jsserver, err := NewJSMapFunction(fns.Map)
@@ -34,12 +56,7 @@ func (bucket *lolrus) PutDDoc(docname string, value interface{}) error {
 			reduceFunction: fns.Reduce,
 		}
 	}
-
-	// Now store the design doc in the Bucket:
-	bucket.lock.Lock()
-	defer bucket.lock.Unlock()
-
-	bucket.designDocs[docname] = ddoc
+	bucket.views[docname] = ddoc
 	return nil
 }
 
@@ -68,12 +85,12 @@ func (bucket *lolrus) findView(docName, viewName string, staleOK bool) (view *lo
 	bucket.lock.RLock()
 	defer bucket.lock.RUnlock()
 
-	if ddoc, exists := bucket.designDocs[docName]; exists {
+	if ddoc, exists := bucket.views[docName]; exists {
 		view = ddoc[viewName]
 		if view != nil {
-			upToDate := view.lastIndexedSequence == bucket.lastSeq
+			upToDate := view.lastIndexedSequence == bucket.LastSeq
 			if !upToDate && staleOK {
-				go bucket.updateView(view, bucket.lastSeq)
+				go bucket.updateView(view, bucket.LastSeq)
 				upToDate = true
 			}
 			if upToDate {
@@ -116,7 +133,7 @@ func (bucket *lolrus) updateView(view *lolrusView, toSequence uint64) ViewResult
 	defer bucket.lock.Unlock()
 
 	if toSequence == 0 {
-		toSequence = bucket.lastSeq
+		toSequence = bucket.LastSeq
 	}
 	if view.lastIndexedSequence >= toSequence {
 		return view.index
@@ -124,14 +141,14 @@ func (bucket *lolrus) updateView(view *lolrusView, toSequence uint64) ViewResult
 
 	//OPT: Should index incrementally by re-mapping rows of docs whose sequence > lastIndexedSequence
 	var result ViewResult
-	result.Rows = make([]ViewRow, 0, len(bucket.docs))
+	result.Rows = make([]ViewRow, 0, len(bucket.Docs))
 	result.Errors = make([]ViewError, 0)
-	for docid, doc := range bucket.docs {
-		raw := doc.raw
+	for docid, doc := range bucket.Docs {
+		raw := doc.Raw
 		if raw == nil {
 			continue
 		}
-		if !doc.isJSON {
+		if !doc.IsJSON {
 			raw = []byte(`{}`) // Ignore contents of non-JSON (raw) docs
 		}
 		rows, err := view.mapFunction.CallFunction(string(raw), docid)
@@ -143,7 +160,7 @@ func (bucket *lolrus) updateView(view *lolrusView, toSequence uint64) ViewResult
 	}
 	sort.Sort(result.Rows)
 
-	view.lastIndexedSequence = bucket.lastSeq
+	view.lastIndexedSequence = bucket.LastSeq
 	view.index = result
 	return view.index
 }
