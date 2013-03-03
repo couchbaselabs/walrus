@@ -12,7 +12,6 @@ package walrus
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 
 	"github.com/robertkrimen/otto"
 )
@@ -21,49 +20,6 @@ import (
 type JSMapFunction struct {
 	output []ViewRow
 	js     *JSServer
-}
-
-// Converts an Otto value to a Go value. Handles all JSON-compatible types.
-func ottoToGo(value otto.Value) (interface{}, error) {
-	if value.IsBoolean() {
-		return value.ToBoolean()
-	} else if value.IsNull() || value.IsUndefined() {
-		return nil, nil
-	} else if value.IsNumber() {
-		return value.ToFloat()
-	} else if value.IsString() {
-		return value.ToString()
-	} else {
-		switch value.Class() {
-		case "Array":
-			return ottoToGoArray(value.Object())
-		}
-	}
-	return nil, fmt.Errorf("Unsupported Otto value: %v", value)
-}
-
-func ottoToGoArray(array *otto.Object) ([]interface{}, error) {
-	lengthVal, err := array.Get("length")
-	if err != nil {
-		return nil, err
-	}
-	length, err := lengthVal.ToInteger()
-	if err != nil {
-		return nil, err
-	}
-
-	result := make([]interface{}, length)
-	for i := 0; i < int(length); i++ {
-		item, err := array.Get(strconv.Itoa(i))
-		if err != nil {
-			return nil, err
-		}
-		result[i], err = ottoToGo(item)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
 }
 
 // Compiles a JavaScript map function to a JSMapFunction object.
@@ -77,8 +33,8 @@ func NewJSMapFunction(funcSource string) (*JSMapFunction, error) {
 
 	// Implementation of the 'emit()' callback:
 	mapper.js.DefineNativeFunction("emit", func(call otto.FunctionCall) otto.Value {
-		key, err1 := ottoToGo(call.ArgumentList[0])
-		value, err2 := ottoToGo(call.ArgumentList[1])
+		key, err1 := OttoToGo(call.ArgumentList[0])
+		value, err2 := OttoToGo(call.ArgumentList[1])
 		if err1 != nil || err2 != nil {
 			panic(fmt.Sprintf("Unsupported key or value types: key=%v, value=%v", key, value))
 		}
