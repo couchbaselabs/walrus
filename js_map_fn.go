@@ -97,7 +97,7 @@ func NewJSMapFunction(funcSource string) (*JSMapFunction, error) {
 	return mapper, nil
 }
 
-func makeMeta(docid string) string {
+func MakeMeta(docid string) string {
 	meta := map[string]interface{}{"id": docid}
 	rawMeta, _ := json.Marshal(meta)
 	return string(rawMeta)
@@ -105,13 +105,13 @@ func makeMeta(docid string) string {
 
 // This is just for testing
 func (mapper *JSMapFunction) callMapper(doc string, docid string) ([]ViewRow, error) {
-	res, err := mapper.js.DirectCallFunction([]string{doc, makeMeta(docid)})
+	res, err := mapper.js.DirectCallFunction([]string{doc, MakeMeta(docid)})
 	return res.([]ViewRow), err
 }
 
 // Calls a JSMapFunction. This is thread-safe.
 func (mapper *JSMapFunction) CallFunction(doc string, docid string) ([]ViewRow, error) {
-	result1, err := mapper.js.CallFunction([]string{doc, makeMeta(docid)})
+	result1, err := mapper.js.CallFunction([]string{doc, MakeMeta(docid)})
 	if err != nil {
 		return nil, err
 	}
