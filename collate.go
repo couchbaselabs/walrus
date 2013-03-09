@@ -46,6 +46,9 @@ func CollateJSON(key1, key2 interface{}) int {
 		array1 := key1.([]interface{})
 		array2 := key2.([]interface{})
 		for i, item1 := range array1 {
+			if i >= len(array2) {
+				return 1
+			}
 			if cmp := CollateJSON(item1, array2[i]); cmp != 0 {
 				return cmp
 			}
