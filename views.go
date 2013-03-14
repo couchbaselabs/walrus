@@ -197,6 +197,17 @@ func ProcessViewResult(result ViewResult, params map[string]interface{},
 	}
 
 	startkey := params["startkey"]
+	endkey := params["endkey"]
+	inclusiveEnd := true
+	if key := params["key"]; key != nil {
+		startkey = key
+		endkey = key
+	} else {
+		if value, ok := params["inclusive_end"].(bool); ok {
+			inclusiveEnd = value
+		}
+	}
+
 	if startkey != nil {
 		i := sort.Search(len(result.Rows), func(i int) bool {
 			return CollateJSON(result.Rows[i].Key, startkey) >= 0
@@ -208,10 +219,13 @@ func ProcessViewResult(result ViewResult, params map[string]interface{},
 		result.Rows = result.Rows[:limit]
 	}
 
-	endkey := params["endkey"]
 	if endkey != nil {
+		limit := 0
+		if !inclusiveEnd {
+			limit = -1
+		}
 		i := sort.Search(len(result.Rows), func(i int) bool {
-			return CollateJSON(result.Rows[i].Key, endkey) > 0
+			return CollateJSON(result.Rows[i].Key, endkey) > limit
 		})
 		result.Rows = result.Rows[:i]
 	}

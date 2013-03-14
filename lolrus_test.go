@@ -102,7 +102,30 @@ func TestView(t *testing.T) {
 		Doc: &expectedDoc})
 
 	// Try an endkey:
+	options["endkey"] = "k2"
+	result, err = bucket.View("docname", "view1", options)
+	assertNoError(t, err, "View call failed")
+	assert.Equals(t, result.TotalRows, 1)
+	assert.DeepEquals(t, result.Rows[0], ViewRow{ID: "doc2", Key: "k2", Value: "v2",
+		Doc: &expectedDoc})
+
+	// Try an endkey out of range:
 	options["endkey"] = "k999"
+	result, err = bucket.View("docname", "view1", options)
+	assertNoError(t, err, "View call failed")
+	assert.Equals(t, result.TotalRows, 1)
+	assert.DeepEquals(t, result.Rows[0], ViewRow{ID: "doc2", Key: "k2", Value: "v2",
+		Doc: &expectedDoc})
+
+	// Try without inclusive_end:
+	options["endkey"] = "k2"
+	options["inclusive_end"] = false
+	result, err = bucket.View("docname", "view1", options)
+	assertNoError(t, err, "View call failed")
+	assert.Equals(t, result.TotalRows, 0)
+
+	// Try a single key:
+	options = map[string]interface{}{"stale": false, "key": "k2", "include_docs": true}
 	result, err = bucket.View("docname", "view1", options)
 	assertNoError(t, err, "View call failed")
 	assert.Equals(t, result.TotalRows, 1)
