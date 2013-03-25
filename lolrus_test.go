@@ -11,7 +11,7 @@ package walrus
 
 import (
 	"encoding/json"
-	"github.com/sdegutis/go.assert"
+	"github.com/couchbaselabs/go.assert"
 	"sync"
 	"testing"
 )
