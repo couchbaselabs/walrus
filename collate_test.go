@@ -46,7 +46,7 @@ func TestCollateJSON(t *testing.T) {
 		{"B", "aa", 1},
 
 		// arrays
-		{[]interface{}{}, []interface{}{"foo"}, 1},
+		{[]interface{}{}, "foo", 1},
 		{[]interface{}{}, []interface{}{}, 0},
 		{[]interface{}{true}, []interface{}{true}, 0},
 		{[]interface{}{false}, []interface{}{nil}, 1},
