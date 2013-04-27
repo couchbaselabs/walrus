@@ -33,10 +33,10 @@ func NewJSMapFunction(funcSource string) (*JSMapFunction, error) {
 
 	// Implementation of the 'emit()' callback:
 	mapper.js.DefineNativeFunction("emit", func(call otto.FunctionCall) otto.Value {
-		key, err1 := OttoToGo(call.ArgumentList[0])
-		value, err2 := OttoToGo(call.ArgumentList[1])
+		key, err1 := call.ArgumentList[0].Export()
+		value, err2 := call.ArgumentList[1].Export()
 		if err1 != nil || err2 != nil {
-			panic(fmt.Sprintf("Unsupported key or value types: key=%v, value=%v", key, value))
+			panic(fmt.Sprintf("Unsupported key or value types: emit(%#v,%#v): %v %v", key, value, err1, err2))
 		}
 		mapper.output = append(mapper.output, ViewRow{Key: key, Value: value})
 		return otto.UndefinedValue()

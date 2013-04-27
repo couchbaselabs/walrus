@@ -13,7 +13,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strconv"
 
 	"github.com/robertkrimen/otto"
 )
@@ -181,47 +180,4 @@ func (server *JSServer) SetFunction(fnSource string) (bool, error) {
 func (server *JSServer) Stop() {
 	close(server.requests)
 	server.requests = nil
-}
-
-// Converts an Otto value to a Go value. Handles all JSON-compatible types.
-func OttoToGo(value otto.Value) (interface{}, error) {
-	if value.IsBoolean() {
-		return value.ToBoolean()
-	} else if value.IsNull() || value.IsUndefined() {
-		return nil, nil
-	} else if value.IsNumber() {
-		return value.ToFloat()
-	} else if value.IsString() {
-		return value.ToString()
-	} else {
-		switch value.Class() {
-		case "Array":
-			return OttoToGoArray(value.Object())
-		}
-	}
-	return nil, fmt.Errorf("Unsupported Otto value: %v", value)
-}
-
-func OttoToGoArray(array *otto.Object) ([]interface{}, error) {
-	lengthVal, err := array.Get("length")
-	if err != nil {
-		return nil, err
-	}
-	length, err := lengthVal.ToInteger()
-	if err != nil {
-		return nil, err
-	}
-
-	result := make([]interface{}, length)
-	for i := 0; i < int(length); i++ {
-		item, err := array.Get(strconv.Itoa(i))
-		if err != nil {
-			return nil, err
-		}
-		result[i], err = OttoToGo(item)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
 }
