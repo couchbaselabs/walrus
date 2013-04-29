@@ -10,13 +10,12 @@
 package walrus
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/robertkrimen/otto"
 )
 
-// A compiled JavaScript 'map' function.
+// A compiled JavaScript 'map' function, API-compatible with Couchbase Server 2.0.
 type JSMapFunction struct {
 	output []ViewRow
 	js     *JSServer
@@ -53,21 +52,20 @@ func NewJSMapFunction(funcSource string) (*JSMapFunction, error) {
 	return mapper, nil
 }
 
-func MakeMeta(docid string) string {
-	meta := map[string]interface{}{"id": docid}
-	rawMeta, _ := json.Marshal(meta)
-	return string(rawMeta)
+// Returns a Couchbase-compatible 'meta' object, given a document ID
+func MakeMeta(docid string) map[string]interface{} {
+	return map[string]interface{}{"id": docid}
 }
 
 // This is just for testing
 func (mapper *JSMapFunction) callMapper(doc string, docid string) ([]ViewRow, error) {
-	res, err := mapper.js.DirectCallFunction([]string{doc, MakeMeta(docid)})
+	res, err := mapper.js.DirectCall(JSONString(doc), MakeMeta(docid))
 	return res.([]ViewRow), err
 }
 
-// Calls a JSMapFunction. This is thread-safe.
+// Calls a JSMapFunction.
 func (mapper *JSMapFunction) CallFunction(doc string, docid string) ([]ViewRow, error) {
-	result1, err := mapper.js.CallFunction([]string{doc, MakeMeta(docid)})
+	result1, err := mapper.js.Call(JSONString(doc), MakeMeta(docid))
 	if err != nil {
 		return nil, err
 	}
@@ -78,10 +76,14 @@ func (mapper *JSMapFunction) CallFunction(doc string, docid string) ([]ViewRow, 
 	return rows, nil
 }
 
+// Updates the JavaScript function that a JSMapFunction instance runs.
+// Subsequent calls to CallFunction will use the new function.
 func (mapper *JSMapFunction) SetFunction(fnSource string) (bool, error) {
 	return mapper.js.SetFunction(fnSource)
 }
 
+// Stops the mapper's background goroutine. The mapper can't be garbage-collected
+// until this is called.
 func (mapper *JSMapFunction) Stop() {
 	mapper.js.Stop()
 }

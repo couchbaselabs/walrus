@@ -66,6 +66,15 @@ func TestEmptyJSMapFunction(t *testing.T) {
 	assert.Equals(t, len(rows), 0)
 }
 
+// Test meta object
+func TestMeta(t *testing.T) {
+	mapper, err := NewJSMapFunction(`function(doc,meta) {if (meta.id!="doc1") throw("bad ID");}`)
+	assertNoError(t, err, "Couldn't create mapper")
+	rows, err := mapper.callMapper(`{"key": "k", "value": "v"}`, "doc1")
+	assertNoError(t, err, "callMapper failed")
+	assert.Equals(t, len(rows), 0)
+}
+
 // Test the public API
 func TestPublicJSMapFunction(t *testing.T) {
 	mapper, err := NewJSMapFunction(`function(doc) {emit(doc.key, doc.value);}`)

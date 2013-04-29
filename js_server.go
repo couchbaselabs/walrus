@@ -17,6 +17,11 @@ import (
 	"github.com/robertkrimen/otto"
 )
 
+// Alternate type to wrap a Go string in to mark that Call() should interpret it as JSON.
+// That is, when Call() sees a parameter of type JSONString it will parse the JSON and use
+// the result as the parameter value, instead of just converting it to a JS string.
+type JSONString string
+
 // Go interface to a JavaScript function (like a map/reduce/channelmap/validation function.)
 // Each JSServer object compiles a single function into a JavaScript runtime, and lets you
 // make thread-safe calls to that function.
@@ -88,8 +93,20 @@ func (server *JSServer) DefineNativeFunction(name string, function func(otto.Fun
 	server.js.Set(name, function)
 }
 
-// Invokes the JS function. Not thread-safe! This is exposed for use by unit tests.
-func (server *JSServer) DirectCallFunction(inputs []string) (interface{}, error) {
+func (server *JSServer) jsonToValue(json string) (interface{}, error) {
+	if json == "" {
+		return otto.NullValue(), nil
+	} else {
+		value, err := server.js.Object("x = " + json)
+		if err != nil {
+			err = fmt.Errorf("Unparseable input %q: %s", json, err)
+		}
+		return value, err
+	}
+}
+
+// Invokes the JS function with JSON inputs. Not thread-safe! This is exposed for use by unit tests.
+func (server *JSServer) DirectCallWithJSON(inputs ...string) (interface{}, error) {
 	if server.Before != nil {
 		server.Before()
 	}
@@ -101,14 +118,9 @@ func (server *JSServer) DirectCallFunction(inputs []string) (interface{}, error)
 	} else {
 		inputJS := make([]interface{}, len(inputs))
 		for i, inputStr := range inputs {
-			if inputStr == "" {
-				inputJS[i] = otto.NullValue()
-			} else {
-				var err error
-				inputJS[i], err = server.js.Object("x = " + inputStr)
-				if err != nil {
-					return nil, fmt.Errorf("Unparseable input %q: %s", inputStr, err)
-				}
+			inputJS[i], err = server.jsonToValue(inputStr)
+			if err != nil {
+				return nil, err
 			}
 		}
 		result, err = server.fn.Call(server.fn, inputJS...)
@@ -119,16 +131,53 @@ func (server *JSServer) DirectCallFunction(inputs []string) (interface{}, error)
 	return nil, err
 }
 
+// Invokes the JS function with Go inputs. Not thread-safe! This is exposed for use by unit tests.
+func (server *JSServer) DirectCall(inputs ...interface{}) (interface{}, error) {
+	if server.Before != nil {
+		server.Before()
+	}
+
+	var result otto.Value
+	var err error
+	if server.fn.IsUndefined() {
+		result = otto.UndefinedValue()
+	} else {
+		inputJS := make([]interface{}, len(inputs))
+		for i, input := range inputs {
+			switch input := input.(type) {
+			case JSONString:
+				inputJS[i], err = server.jsonToValue(string(input))
+			default:
+				inputJS[i], err = server.js.ToValue(input)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("Couldn't convert %#v to JS: %s", input, err)
+			}
+		}
+		result, err = server.fn.Call(server.fn, inputJS...)
+	}
+	if server.After != nil {
+		return server.After(result, err)
+	}
+	return nil, err
+}
+
+// Deprecated equivalent of DirectCallWithJSON, kept around for backward compatibility.
+func (server *JSServer) DirectCallFunction(inputs []string) (interface{}, error) {
+	return server.DirectCallWithJSON(inputs...)
+}
+
 //////// SERVER:
 
 const (
 	kCallFunction = iota
+	kCallFunctionWithJSON
 	kSetFunction
 )
 
 type jsServerRequest struct {
 	mode          int
-	input         []string
+	input         interface{}
 	returnAddress chan<- jsServerResponse
 }
 
@@ -142,10 +191,12 @@ func (server *JSServer) serve() {
 		var response jsServerResponse
 		switch request.mode {
 		case kCallFunction:
-			response.output, response.err = server.DirectCallFunction(request.input)
+			response.output, response.err = server.DirectCall(request.input.([]interface{})...)
+		case kCallFunctionWithJSON:
+			response.output, response.err = server.DirectCallWithJSON(request.input.([]string)...)
 		case kSetFunction:
 			var changed bool
-			changed, response.err = server.setFunction(request.input[0])
+			changed, response.err = server.setFunction(request.input.(string))
 			if changed {
 				response.output = []string{}
 			}
@@ -154,25 +205,40 @@ func (server *JSServer) serve() {
 	}
 }
 
-func (server *JSServer) request(mode int, input []string) jsServerResponse {
+func (server *JSServer) request(mode int, input interface{}) jsServerResponse {
 	responseChan := make(chan jsServerResponse, 1)
 	server.requests <- jsServerRequest{mode, input, responseChan}
 	return <-responseChan
 }
 
 // Public thread-safe entry point for invoking the JS function.
-// The input is an array of JavaScript expressions (most likely JSON) that will be parsed and
+// The input parameters are JavaScript expressions (most likely JSON) that will be parsed and
 // passed as parameters to the function.
 // The output value will be nil unless a custom 'After' function has been installed, in which
 // case it'll be the result of that function.
-func (server *JSServer) CallFunction(input []string) (interface{}, error) {
-	response := server.request(kCallFunction, input)
+func (server *JSServer) CallWithJSON(jsonParams ...string) (interface{}, error) {
+	response := server.request(kCallFunctionWithJSON, jsonParams)
 	return response.output, response.err
+}
+
+// Public thread-safe entry point for invoking the JS function.
+// The input parameters are Go values that will be converted to JavaScript values.
+// JSON can be passed in as a value of type JSONString (a wrapper type for string.)
+// The output value will be nil unless a custom 'After' function has been installed, in which
+// case it'll be the result of that function.
+func (server *JSServer) Call(goParams ...interface{}) (interface{}, error) {
+	response := server.request(kCallFunction, goParams)
+	return response.output, response.err
+}
+
+// Deprecated synonym for CallWithJSON, kept around for backward compatibility.
+func (server *JSServer) CallFunction(jsonParams []string) (interface{}, error) {
+	return server.CallWithJSON(jsonParams...)
 }
 
 // Public thread-safe entry point for changing the JS function.
 func (server *JSServer) SetFunction(fnSource string) (bool, error) {
-	response := server.request(kSetFunction, []string{fnSource})
+	response := server.request(kSetFunction, fnSource)
 	return (response.output != nil), response.err
 }
 
