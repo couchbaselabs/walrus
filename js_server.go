@@ -96,13 +96,13 @@ func (server *JSServer) DefineNativeFunction(name string, function func(otto.Fun
 func (server *JSServer) jsonToValue(json string) (interface{}, error) {
 	if json == "" {
 		return otto.NullValue(), nil
-	} else {
-		value, err := server.js.Object("x = " + json)
-		if err != nil {
-			err = fmt.Errorf("Unparseable input %q: %s", json, err)
-		}
-		return value, err
 	}
+
+	value, err := server.js.Object("x = " + json)
+	if err != nil {
+		err = fmt.Errorf("Unparseable input %q: %s", json, err)
+	}
+	return value, err
 }
 
 // Invokes the JS function with JSON inputs. Not thread-safe! This is exposed for use by unit tests.
