@@ -1,0 +1,10 @@
+language: go
+
+script:
+  - go get github.com/couchbaselabs/go.assert
+  - go test -v ./...
+  - go vet ./...
+
+notifications:
+  email:
+    - dustin@couchbase.com
