@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 )
 
@@ -53,6 +54,7 @@ func load(path string) (*lolrus, error) {
 			return nil, err
 		}
 	}
+	runtime.SetFinalizer(bucket, (*lolrus).Close)
 	ohai("Loaded bucket from %s", path)
 	return bucket, nil
 }
@@ -105,10 +107,7 @@ func NewPersistentBucket(dir, poolName, bucketName string) (Bucket, error) {
 	return bucket, nil
 }
 
-func (bucket *lolrus) Close() error {
-	bucket.lock.Lock()
-	defer bucket.lock.Unlock()
-
+func (bucket *lolrus) _closePersist() error {
 	if !bucket.saving {
 		return nil
 	}

@@ -26,6 +26,7 @@ func TestSave(t *testing.T) {
 	bucket.path = kTestPath
 	err := bucket._save()
 	assertNoError(t, err, "couldn't save")
+	bucket.Close()
 
 	bucket2, err := load(kTestPath)
 	assertNoError(t, err, "couldn't load")
@@ -52,8 +53,7 @@ func TestLoadOrNew(t *testing.T) {
 	assert.Equals(t, len(bucket.Docs), 0)
 
 	bucket.Add("key9", 0, `{"value": 9}`)
-	err = bucket.Close()
-	assertNoError(t, err, "Close failed")
+	bucket.Close()
 
 	bucket, err = loadOrNew(kTestPath, "lolrus_test_loadOrNew")
 	assertNoError(t, err, "loadOrNew #2 failed")

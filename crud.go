@@ -12,6 +12,7 @@ package walrus
 import (
 	"encoding/json"
 	"net/url"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -45,7 +46,7 @@ type lolrusDoc struct {
 // Creates a simple in-memory Bucket, suitable only for amusement purposes & testing.
 // The Bucket is created empty. There is no way to save it persistently. The name is ignored.
 func NewBucket(bucketName string) Bucket {
-	return &lolrus{
+	bucket := &lolrus{
 		name: bucketName,
 		lolrusData: lolrusData{
 			Docs:       map[string]*lolrusDoc{},
@@ -53,6 +54,8 @@ func NewBucket(bucketName string) Bucket {
 		},
 		views: map[string]lolrusDesignDoc{},
 	}
+	runtime.SetFinalizer(bucket, (*lolrus).Close)
+	return bucket
 }
 
 var buckets map[[3]string]Bucket
@@ -129,6 +132,20 @@ func (bucket *lolrus) _nextSequence() uint64 {
 
 func (bucket *lolrus) GetName() string {
 	return bucket.name // name is immutable so this needs no lock
+}
+
+func (bucket *lolrus) Close() {
+	bucket.lock.RLock()
+	defer bucket.lock.RUnlock()
+
+	bucket._closePersist()
+
+	for _, ddoc := range bucket.views {
+		for _, view := range ddoc {
+			view.mapFunction.Stop()
+		}
+	}
+	bucket.views = nil
 }
 
 //////// GET:

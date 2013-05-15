@@ -27,6 +27,7 @@ func setJSON(bucket Bucket, docid string, jsonDoc string) error {
 
 func TestIncr(t *testing.T) {
 	bucket := NewBucket("buckit")
+	defer bucket.Close()
 	count, err := bucket.Incr("count1", 1, 100, 0)
 	assertNoError(t, err, "Incr")
 	assert.Equals(t, count, uint64(101))
@@ -47,6 +48,7 @@ func TestIncr(t *testing.T) {
 // Spawns 1000 goroutines that 'simultaneously' use Incr to increment the same counter by 1.
 func TestIncrAtomic(t *testing.T) {
 	bucket := NewBucket("buckit")
+	defer bucket.Close()
 	var waiters sync.WaitGroup
 	numIncrements := 1000
 	waiters.Add(numIncrements)
@@ -68,6 +70,7 @@ func TestIncrAtomic(t *testing.T) {
 func TestView(t *testing.T) {
 	ddoc := DesignDoc{Views: ViewMap{"view1": ViewDef{Map: `function(doc){if (doc.key) emit(doc.key,doc.value)}`}}}
 	bucket := NewBucket("buckit")
+	defer bucket.Close()
 	err := bucket.PutDDoc("docname", ddoc)
 	assertNoError(t, err, "PutDDoc failed")
 
