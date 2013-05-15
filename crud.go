@@ -28,11 +28,12 @@ type lolrusData struct {
 // Simple, inefficient in-memory implementation of Bucket interface.
 // http://ihasabucket.com
 type lolrus struct {
-	name   string                     // Name of the bucket
-	path   string                     // Filesystem path, if it's persistent
-	saving bool                       // Is a pending save in progress?
-	lock   sync.RWMutex               // For thread-safety
-	views  map[string]lolrusDesignDoc // Stores runtime view/index data
+	name     string                     // Name of the bucket
+	path     string                     // Filesystem path, if it's persistent
+	saving   bool                       // Is a pending save in progress?
+	lock     sync.RWMutex               // For thread-safety
+	views    map[string]lolrusDesignDoc // Stores runtime view/index data
+	tapFeeds []*TapFeed
 	lolrusData
 }
 
@@ -179,6 +180,7 @@ func (bucket *lolrus) add(k string, exp int, v []byte, isJSON bool) (added bool,
 		return false, nil
 	}
 	bucket.Docs[k] = &lolrusDoc{Raw: v, IsJSON: isJSON, Sequence: bucket._nextSequence()}
+	bucket.postTapMutationEvent(k, v)
 	return true, nil
 }
 
@@ -209,6 +211,7 @@ func (bucket *lolrus) set(k string, exp int, v []byte, isJSON bool) error {
 		doc.IsJSON = true
 	}
 	doc.Sequence = bucket._nextSequence()
+	bucket.postTapMutationEvent(k, v)
 	return nil
 }
 
@@ -236,6 +239,7 @@ func (bucket *lolrus) Delete(k string) error {
 	}
 	doc.Raw = nil
 	doc.Sequence = bucket._nextSequence()
+	bucket.postTapDeletionEvent(k)
 	return nil
 }
 
@@ -277,6 +281,7 @@ func (bucket *lolrus) updateDoc(k string, doc *lolrusDoc) bool {
 	doc.Sequence = bucket._nextSequence()
 	doc.IsJSON = (doc.Raw != nil) // Doc is assumed to be JSON, unless deleted. (Used by Update)
 	bucket.Docs[k] = doc
+	bucket.postTapMutationEvent(k, doc.Raw)
 	return true
 }
 
@@ -308,6 +313,7 @@ func (bucket *lolrus) Incr(k string, amt, def uint64, exp int) (uint64, error) {
 			Sequence: bucket._nextSequence(),
 		}
 		bucket.Docs[k] = doc
+		bucket.postTapMutationEvent(k, doc.Raw)
 	}
 	return counter, nil
 }

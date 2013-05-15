@@ -30,6 +30,7 @@ type Bucket interface {
 	PutDDoc(docname string, value interface{}) error
 	View(ddoc, name string, params map[string]interface{}) (ViewResult, error)
 	ViewCustom(ddoc, name string, params map[string]interface{}, vres interface{}) error
+	StartTapFeed(args TapArguments) (*TapFeed, error)
 	Close()
 }
 
