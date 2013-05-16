@@ -14,7 +14,6 @@ const (
 	TapDeletion
 	TapCheckpointStart
 	TapCheckpointEnd
-	tapEndStream
 )
 
 // A TAP notification of an operation on the server.
@@ -25,13 +24,11 @@ type TapEvent struct {
 	Key, Value []byte    // Item key/value
 }
 
-// A Tap feed. Events from the bucket can be read from the channel 'C'.
+// A Tap feed. Events from the bucket can be read from the channel returned by Events().
 // Remember to call Close() on it when you're done, unless its channel has closed itself already.
-type TapFeed struct {
-	C      <-chan TapEvent
-	writer chan<- TapEvent
-	closer chan bool
-	args   TapArguments
+type TapFeed interface {
+	Events() <-chan TapEvent
+	Close()
 }
 
 // Parameters for requesting a TAP feed. Call DefaultTapArguments to get a default one.
@@ -44,15 +41,20 @@ type TapArguments struct {
 // Value for TapArguments.Backfill denoting that no past events at all should be sent.
 const TapNoBackfill = math.MaxUint64
 
+type tapFeedImpl struct {
+	channel chan TapEvent
+	closer  chan bool
+	args    TapArguments
+}
+
 // Starts a TAP feed on a client connection. The events can be read from the returned channel.
 // To stop receiving events, call Close() on the feed.
-func (bucket *lolrus) StartTapFeed(args TapArguments) (*TapFeed, error) {
+func (bucket *lolrus) StartTapFeed(args TapArguments) (TapFeed, error) {
 	channel := make(chan TapEvent, 10)
-	feed := &TapFeed{
-		C:      channel,
-		writer: channel,
-		closer: make(chan bool),
-		args:   args,
+	feed := &tapFeedImpl{
+		channel: channel,
+		closer:  make(chan bool),
+		args:    args,
 	}
 
 	go func() {
@@ -61,7 +63,7 @@ func (bucket *lolrus) StartTapFeed(args TapArguments) (*TapFeed, error) {
 			bucket.backfill(feed)
 		}
 		if args.Dump {
-			close(feed.writer)
+			close(feed.channel)
 		} else {
 			// Now that the backfill (if any) is over, listen for future events:
 			bucket.lock.RLock()
@@ -74,20 +76,23 @@ func (bucket *lolrus) StartTapFeed(args TapArguments) (*TapFeed, error) {
 	return feed, nil
 }
 
-// Closes a TapFeed. Call this if you stop using a TapFeed before its channel ends.
-func (feed *TapFeed) Close() {
-	close(feed.closer)
-	feed.closer = nil
-	feed.writer = nil
-	feed.C = nil
+func (feed *tapFeedImpl) Events() <-chan TapEvent {
+	return feed.channel
 }
 
-func (bucket *lolrus) backfill(feed *TapFeed) {
-	feed.writer <- TapEvent{Opcode: TapBeginBackfill}
+// Closes a TapFeed. Call this if you stop using a TapFeed before its channel ends.
+func (feed *tapFeedImpl) Close() {
+	close(feed.closer)
+	feed.closer = nil
+	feed.channel = nil
+}
+
+func (bucket *lolrus) backfill(feed *tapFeedImpl) {
+	feed.channel <- TapEvent{Opcode: TapBeginBackfill}
 	for _, event := range bucket.copyBackfillEvents(feed.args.Backfill) {
-		feed.writer <- event
+		feed.channel <- event
 	}
-	feed.writer <- TapEvent{Opcode: TapEndBackfill}
+	feed.channel <- TapEvent{Opcode: TapEndBackfill}
 }
 
 func (bucket *lolrus) copyBackfillEvents(startSequence uint64) []TapEvent {
@@ -108,9 +113,15 @@ func (bucket *lolrus) copyBackfillEvents(startSequence uint64) []TapEvent {
 }
 
 func (bucket *lolrus) postTapEvent(event TapEvent) {
+	eventNoValue := event
+	eventNoValue.Value = nil
 	for _, feed := range bucket.tapFeeds {
-		if feed.writer != nil {
-			feed.writer <- event
+		if feed.channel != nil {
+			if feed.args.KeysOnly {
+				feed.channel <- eventNoValue
+			} else {
+				feed.channel <- event
+			}
 		}
 	}
 }

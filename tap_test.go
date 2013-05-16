@@ -16,21 +16,21 @@ func TestBackfill(t *testing.T) {
 	assertNoError(t, err, "StartTapFeed failed")
 	assert.True(t, feed != nil)
 
-	event := <-feed.C
+	event := <-feed.Events()
 	assert.Equals(t, event.Opcode, TapBeginBackfill)
 	results := map[string]string{}
 	for i := 0; i < 3; i++ {
-		event := <-feed.C
+		event := <-feed.Events()
 		assert.Equals(t, event.Opcode, TapMutation)
 		results[string(event.Key)] = string(event.Value)
 	}
 	assert.DeepEquals(t, results, map[string]string{
 		"able": `"A"`, "baker": `"B"`, "charlie": `"C"`})
 
-	event = <-feed.C
+	event = <-feed.Events()
 	assert.Equals(t, event.Opcode, TapEndBackfill)
 
-	event, ok := <-feed.C
+	event, ok := <-feed.Events()
 	assert.False(t, ok)
 }
 
@@ -53,8 +53,8 @@ func TestMutations(t *testing.T) {
 		bucket.Delete("eskimo")
 	}()
 
-	assert.DeepEquals(t, <-feed.C, TapEvent{Opcode: TapMutation, Key: []byte("delta"), Value: []byte(`"D"`)})
-	assert.DeepEquals(t, <-feed.C, TapEvent{Opcode: TapMutation, Key: []byte("eskimo"), Value: []byte(`"E"`)})
-	assert.DeepEquals(t, <-feed.C, TapEvent{Opcode: TapMutation, Key: []byte("fahrvergnügen"), Value: []byte(`"F"`)})
-	assert.DeepEquals(t, <-feed.C, TapEvent{Opcode: TapDeletion, Key: []byte("eskimo")})
+	assert.DeepEquals(t, <-feed.Events(), TapEvent{Opcode: TapMutation, Key: []byte("delta"), Value: []byte(`"D"`)})
+	assert.DeepEquals(t, <-feed.Events(), TapEvent{Opcode: TapMutation, Key: []byte("eskimo"), Value: []byte(`"E"`)})
+	assert.DeepEquals(t, <-feed.Events(), TapEvent{Opcode: TapMutation, Key: []byte("fahrvergnügen"), Value: []byte(`"F"`)})
+	assert.DeepEquals(t, <-feed.Events(), TapEvent{Opcode: TapDeletion, Key: []byte("eskimo")})
 }

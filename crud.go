@@ -33,7 +33,7 @@ type lolrus struct {
 	saving   bool                       // Is a pending save in progress?
 	lock     sync.RWMutex               // For thread-safety
 	views    map[string]lolrusDesignDoc // Stores runtime view/index data
-	tapFeeds []*TapFeed
+	tapFeeds []*tapFeedImpl
 	lolrusData
 }
 
