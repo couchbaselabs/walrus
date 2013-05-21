@@ -155,8 +155,8 @@ func (bucket *lolrus) GetRaw(k string) ([]byte, error) {
 	bucket.lock.RLock()
 	defer bucket.lock.RUnlock()
 
-	doc, found := bucket.Docs[k]
-	if !found || doc.Raw == nil {
+	doc := bucket.Docs[k]
+	if doc == nil || doc.Raw == nil {
 		return nil, MissingError{}
 	}
 	return doc.Raw, nil
@@ -176,8 +176,8 @@ func (bucket *lolrus) add(k string, exp int, v []byte, isJSON bool) (added bool,
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
-	if _, found := bucket.Docs[k]; found {
-		return false, nil
+	if doc := bucket.Docs[k]; doc != nil && doc.Raw != nil {
+		return false, nil // Already exists
 	}
 	bucket.Docs[k] = &lolrusDoc{Raw: v, IsJSON: isJSON, Sequence: bucket._nextSequence()}
 	bucket.postTapMutationEvent(k, v)
@@ -233,8 +233,8 @@ func (bucket *lolrus) Delete(k string) error {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
-	doc, found := bucket.Docs[k]
-	if !found {
+	doc := bucket.Docs[k]
+	if doc == nil || doc.Raw == nil {
 		return MissingError{}
 	}
 	doc.Raw = nil
@@ -274,8 +274,11 @@ func (bucket *lolrus) updateDoc(k string, doc *lolrusDoc) bool {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
-	curDoc := bucket.Docs[k]
-	if curDoc != nil && curDoc.Sequence != doc.Sequence {
+	var curSequence uint64
+	if curDoc := bucket.Docs[k]; curDoc != nil {
+		curSequence = curDoc.Sequence
+	}
+	if curSequence != doc.Sequence {
 		return false
 	}
 	doc.Sequence = bucket._nextSequence()
@@ -297,8 +300,8 @@ func (bucket *lolrus) Incr(k string, amt, def uint64, exp int) (uint64, error) {
 	}
 
 	var counter = def
-	doc, found := bucket.Docs[k]
-	if found && doc.Raw != nil {
+	doc := bucket.Docs[k]
+	if doc != nil && doc.Raw != nil {
 		var err error
 		counter, err = strconv.ParseUint(string(doc.Raw), 10, 64)
 		if err != nil {

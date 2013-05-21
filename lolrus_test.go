@@ -25,6 +25,24 @@ func setJSON(bucket Bucket, docid string, jsonDoc string) error {
 	return bucket.Set(docid, 0, obj)
 }
 
+func TestDeleteThenAdd(t *testing.T) {
+	bucket := NewBucket("buckit")
+	defer bucket.Close()
+
+	var value interface{}
+	assert.DeepEquals(t, bucket.Get("key", &value), MissingError{})
+	added, err := bucket.Add("key", 0, "value")
+	assertNoError(t, err, "Add")
+	assert.True(t, added)
+	assertNoError(t, bucket.Get("key", &value), "Get")
+	assert.Equals(t, value, "value")
+	assertNoError(t, bucket.Delete("key"), "Delete")
+	assert.DeepEquals(t, bucket.Get("key", &value), MissingError{})
+	added, err = bucket.Add("key", 0, "value")
+	assertNoError(t, err, "Add")
+	assert.True(t, added)
+}
+
 func TestIncr(t *testing.T) {
 	bucket := NewBucket("buckit")
 	defer bucket.Close()
