@@ -10,6 +10,7 @@
 package walrus
 
 import (
+	"errors"
 	"fmt"
 	"log"
 )
@@ -25,7 +26,9 @@ type Bucket interface {
 	Set(k string, exp int, v interface{}) error
 	SetRaw(k string, exp int, v []byte) error
 	Delete(k string) error
+	Write(k string, exp int, v interface{}, opt WriteOptions) error
 	Update(k string, exp int, callback UpdateFunc) error
+	WriteUpdate(k string, exp int, callback WriteUpdateFunc) error
 	Incr(k string, amt, def uint64, exp int) (uint64, error)
 	PutDDoc(docname string, value interface{}) error
 	View(ddoc, name string, params map[string]interface{}) (ViewResult, error)
@@ -33,6 +36,16 @@ type Bucket interface {
 	StartTapFeed(args TapArguments) (TapFeed, error)
 	Close()
 }
+
+// A set of option flags for the Write method.
+type WriteOptions int
+
+const (
+	Raw       = WriteOptions(1 << iota) // Value is raw []byte; don't JSON-encode it
+	AddOnly                             // Fail with ErrKeyExists if key already has a value
+	Persist                             // After write, wait until it's written to disk
+	Indexable                           // After write, wait until it's ready for views to index
+)
 
 // Result of a view query.
 type ViewResult struct {
@@ -51,12 +64,21 @@ type ViewRow struct {
 	Doc   *interface{}
 }
 
-// Error returned by Bucket API when a document is missing
+// Type of error returned by Bucket API when a document is missing
 type MissingError struct{}
 
 func (err MissingError) Error() string {
 	return "missing"
 }
+
+// Error returned from Write with AddOnly flag, when key already exists in the bucket.
+// (This is *not* returned from the Add method! Add has an extra boolean parameter to
+// indicate this state, so it returns (false,nil).)
+var ErrKeyExists = errors.New("Key exists")
+
+// Error returned from Write with Perist or Indexable flags, if the value doesn't become
+// persistent or indexable within the timeout period.
+var ErrTimeout = errors.New("Timeout")
 
 type ViewError struct {
 	From   string
@@ -68,6 +90,8 @@ func (ve ViewError) Error() string {
 }
 
 type UpdateFunc func(current []byte) (updated []byte, err error)
+
+type WriteUpdateFunc func(current []byte) (updated []byte, opt WriteOptions, err error)
 
 //////// VIEW ROWS: (implementation of sort.Interface interface)
 

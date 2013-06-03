@@ -11,11 +11,13 @@ package walrus
 
 import (
 	"encoding/json"
+	"errors"
 	"net/url"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // The persistent portion of a lolrus object (the stuff that gets archived to disk.)
@@ -28,12 +30,13 @@ type lolrusData struct {
 // Simple, inefficient in-memory implementation of Bucket interface.
 // http://ihasabucket.com
 type lolrus struct {
-	name     string                     // Name of the bucket
-	path     string                     // Filesystem path, if it's persistent
-	saving   bool                       // Is a pending save in progress?
-	lock     sync.RWMutex               // For thread-safety
-	views    map[string]lolrusDesignDoc // Stores runtime view/index data
-	tapFeeds []*tapFeedImpl
+	name         string                     // Name of the bucket
+	path         string                     // Filesystem path, if it's persistent
+	saving       bool                       // Is a pending save in progress?
+	lastSeqSaved uint64                     // LastSeq at time of last save
+	lock         sync.RWMutex               // For thread-safety
+	views        map[string]lolrusDesignDoc // Stores runtime view/index data
+	tapFeeds     []*tapFeedImpl
 	lolrusData
 }
 
@@ -170,91 +173,147 @@ func (bucket *lolrus) Get(k string, rv interface{}) error {
 	return json.Unmarshal(raw, rv)
 }
 
-//////// ADD:
+//////// WRITE:
 
-func (bucket *lolrus) add(k string, exp int, v []byte, isJSON bool) (added bool, err error) {
-	bucket.lock.Lock()
-	defer bucket.lock.Unlock()
-
-	if doc := bucket.Docs[k]; doc != nil && doc.Raw != nil {
-		return false, nil // Already exists
+func (bucket *lolrus) Write(k string, exp int, v interface{}, opt WriteOptions) (err error) {
+	// Marshal JSON if the value is not raw:
+	isJSON := (opt&Raw == 0)
+	var data []byte
+	if !isJSON {
+		if v != nil {
+			data = v.([]byte)
+		}
+	} else {
+		data, err = json.Marshal(v)
+		if err != nil {
+			return err
+		}
 	}
-	bucket.Docs[k] = &lolrusDoc{Raw: v, IsJSON: isJSON, Sequence: bucket._nextSequence()}
-	bucket.postTapMutationEvent(k, v)
-	return true, nil
-}
 
-func (bucket *lolrus) AddRaw(k string, exp int, v []byte) (added bool, err error) {
-	return bucket.add(k, exp, v, false)
-}
-
-func (bucket *lolrus) Add(k string, exp int, v interface{}) (added bool, err error) {
-	raw, err := json.Marshal(v)
+	// Now do the actual write:
+	seq, err := bucket.write(k, exp, data, opt)
 	if err != nil {
-		return false, err
+		return
 	}
-	return bucket.add(k, exp, raw, true)
+
+	// Post a TAP notification:
+	if data != nil {
+		bucket.postTapMutationEvent(k, data)
+	} else {
+		bucket.postTapDeletionEvent(k)
+	}
+
+	// Wait for persistent save, if that flag is set:
+	return bucket.waitAfterWrite(seq, opt)
 }
 
-//////// SET:
+// Waits until the given sequence has been persisted or made indexable.
+func (bucket *lolrus) waitAfterWrite(seq uint64, opt WriteOptions) error {
+	// This method ignores the Indexable option because all writes are immediately indexable.
+	if opt&Persist != 0 {
+		if bucket.path == "" {
+			return errors.New("Bucket is non-persistent")
+		}
+		start := time.Now()
+		for {
+			time.Sleep(100 * time.Millisecond)
+			if bucket.isSequenceSaved(seq) {
+				break
+			} else if time.Since(start) > 5*time.Second {
+				return ErrTimeout
+			}
+		}
+	}
+	return nil
+}
 
-func (bucket *lolrus) set(k string, exp int, v []byte, isJSON bool) error {
+func (bucket *lolrus) write(k string, exp int, raw []byte, opt WriteOptions) (seq uint64, err error) {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
 	doc := bucket.Docs[k]
 	if doc == nil {
-		doc = &lolrusDoc{Raw: v, IsJSON: true}
+		if raw == nil {
+			return 0, MissingError{}
+		}
+		doc = &lolrusDoc{}
 		bucket.Docs[k] = doc
 	} else {
-		doc.Raw = v
-		doc.IsJSON = true
+		if doc.Raw == nil && raw == nil {
+			return 0, MissingError{}
+		} else if doc.Raw != nil && opt&AddOnly != 0 {
+			return 0, ErrKeyExists
+		}
 	}
+	doc.Raw = raw
+	doc.IsJSON = (opt&Raw == 0)
 	doc.Sequence = bucket._nextSequence()
-	bucket.postTapMutationEvent(k, v)
-	return nil
+	return doc.Sequence, nil
+}
+
+//////// ADD / SET / DELETE:
+
+func (bucket *lolrus) add(k string, exp int, v interface{}, opt WriteOptions) (added bool, err error) {
+	err = bucket.Write(k, exp, v, opt|AddOnly)
+	if err == ErrKeyExists {
+		return false, nil
+	}
+	return (err == nil), err
+}
+
+func (bucket *lolrus) AddRaw(k string, exp int, v []byte) (added bool, err error) {
+	if v == nil {
+		panic("nil value")
+	}
+	return bucket.add(k, exp, v, Raw)
+}
+
+func (bucket *lolrus) Add(k string, exp int, v interface{}) (added bool, err error) {
+	return bucket.add(k, exp, v, 0)
 }
 
 func (bucket *lolrus) SetRaw(k string, exp int, v []byte) error {
-	return bucket.set(k, exp, v, false)
+	if v == nil {
+		panic("nil value")
+	}
+	return bucket.Write(k, exp, v, Raw)
 }
 
 func (bucket *lolrus) Set(k string, exp int, v interface{}) error {
-	raw, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-	return bucket.set(k, exp, raw, true)
+	return bucket.Write(k, exp, v, 0)
 }
 
-//////// DELETE:
-
 func (bucket *lolrus) Delete(k string) error {
-	bucket.lock.Lock()
-	defer bucket.lock.Unlock()
-
-	doc := bucket.Docs[k]
-	if doc == nil || doc.Raw == nil {
-		return MissingError{}
-	}
-	doc.Raw = nil
-	doc.Sequence = bucket._nextSequence()
-	bucket.postTapDeletionEvent(k)
-	return nil
+	return bucket.Write(k, 0, nil, Raw)
 }
 
 //////// UPDATE:
 
-func (bucket *lolrus) Update(k string, exp int, callback UpdateFunc) error {
+func (bucket *lolrus) WriteUpdate(k string, exp int, callback WriteUpdateFunc) error {
 	var err error
+	var doc lolrusDoc
+	var opts WriteOptions
+	var seq uint64
 	for {
-		doc := bucket.getDoc(k)
-		doc.Raw, err = callback(doc.Raw)
-		if err != nil || bucket.updateDoc(k, &doc) {
+		doc = bucket.getDoc(k)
+		doc.Raw, opts, err = callback(doc.Raw)
+		if err != nil {
+			return err
+		} else if seq = bucket.updateDoc(k, &doc); seq > 0 {
 			break
 		}
 	}
-	return err
+	// Document has been updated:
+	bucket.postTapMutationEvent(k, doc.Raw)
+	return bucket.waitAfterWrite(seq, opts)
+}
+
+func (bucket *lolrus) Update(k string, exp int, callback UpdateFunc) error {
+	writeCallback := func(current []byte) (updated []byte, opts WriteOptions, err error) {
+		updated, err = callback(current)
+		return
+	}
+	return bucket.WriteUpdate(k, exp, writeCallback)
 }
 
 // Looks up a lolrusDoc and returns a copy of it, or an empty doc if one doesn't exist yet
@@ -270,7 +329,7 @@ func (bucket *lolrus) getDoc(k string) lolrusDoc {
 }
 
 // Replaces a lolrusDoc as long as its sequence number hasn't changed yet. (Used by Update)
-func (bucket *lolrus) updateDoc(k string, doc *lolrusDoc) bool {
+func (bucket *lolrus) updateDoc(k string, doc *lolrusDoc) uint64 {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
@@ -279,13 +338,12 @@ func (bucket *lolrus) updateDoc(k string, doc *lolrusDoc) bool {
 		curSequence = curDoc.Sequence
 	}
 	if curSequence != doc.Sequence {
-		return false
+		return 0
 	}
 	doc.Sequence = bucket._nextSequence()
 	doc.IsJSON = (doc.Raw != nil) // Doc is assumed to be JSON, unless deleted. (Used by Update)
 	bucket.Docs[k] = doc
-	bucket.postTapMutationEvent(k, doc.Raw)
-	return true
+	return doc.Sequence
 }
 
 //////// INCR:

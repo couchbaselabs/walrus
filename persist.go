@@ -27,7 +27,11 @@ func (bucket *lolrus) _save() error {
 	encoder.Encode(bucket.lolrusData)
 	file.Close()
 
-	return os.Rename(file.Name(), bucket.path)
+	err = os.Rename(file.Name(), bucket.path)
+	if err == nil {
+		bucket.lastSeqSaved = bucket.LastSeq
+	}
+	return err
 }
 
 func load(path string) (*lolrus, error) {
@@ -47,6 +51,7 @@ func load(path string) (*lolrus, error) {
 		log.Printf("Decode error: %v", err)
 		return nil, err
 	}
+	bucket.lastSeqSaved = bucket.LastSeq
 
 	// Recompile the design docs:
 	for name, ddoc := range bucket.DesignDocs {
@@ -113,4 +118,10 @@ func (bucket *lolrus) _closePersist() error {
 	}
 	bucket.saving = false // defuse pending save goroutine (see _saveSoon)
 	return bucket._save()
+}
+
+func (bucket *lolrus) isSequenceSaved(seq uint64) bool {
+	bucket.lock.Lock()
+	defer bucket.lock.Unlock()
+	return bucket.lastSeqSaved >= seq
 }

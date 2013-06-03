@@ -79,6 +79,7 @@ func TestBucketURLToDir(t *testing.T) {
 }
 
 func TestNewPersistentBucket(t *testing.T) {
+	os.Remove("/tmp/pool-buckit.walrus")
 	bucket, err := GetBucket("walrus:/tmp", "pool", "buckit")
 	assertNoError(t, err, "NewPersistentBucket failed")
 	assert.Equals(t, bucket.(*lolrus).path, "/tmp/pool-buckit.walrus")
@@ -88,4 +89,20 @@ func TestNewPersistentBucket(t *testing.T) {
 	assertNoError(t, err, "NewPersistentBucket failed")
 	assert.Equals(t, bucket.(*lolrus).path, "temp/buckit.walrus")
 	bucket.(*lolrus).Close()
+}
+
+func TestWriteWithPersist(t *testing.T) {
+	os.Remove("/tmp/pool-buckit.walrus")
+	bucket, err := GetBucket("walrus:/tmp", "pool", "buckit")
+	assertNoError(t, err, "NewPersistentBucket failed")
+
+	assertNoError(t, bucket.Write("key1", 0, []byte("value1"), Raw|Persist), "Write failed")
+
+	// Load the file into a new bucket to make sure the value got saved to disk:
+	bucket2, err := load(bucket.(*lolrus).path)
+	value, err := bucket2.GetRaw("key1")
+	assertNoError(t, err, "Get failed")
+	assert.Equals(t, string(value), "value1")
+	bucket2.Close()
+	bucket.Close()
 }
