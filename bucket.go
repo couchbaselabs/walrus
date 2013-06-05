@@ -65,10 +65,10 @@ type ViewRow struct {
 }
 
 // Type of error returned by Bucket API when a document is missing
-type MissingError struct{}
+type MissingError struct{ key string }
 
 func (err MissingError) Error() string {
-	return "missing"
+	return fmt.Sprintf("key %q missing", err.key)
 }
 
 // Error returned from Write with AddOnly flag, when key already exists in the bucket.

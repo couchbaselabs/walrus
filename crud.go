@@ -160,7 +160,7 @@ func (bucket *lolrus) GetRaw(k string) ([]byte, error) {
 
 	doc := bucket.Docs[k]
 	if doc == nil || doc.Raw == nil {
-		return nil, MissingError{}
+		return nil, MissingError{k}
 	}
 	return doc.Raw, nil
 }
@@ -234,13 +234,13 @@ func (bucket *lolrus) write(k string, exp int, raw []byte, opt WriteOptions) (se
 	doc := bucket.Docs[k]
 	if doc == nil {
 		if raw == nil {
-			return 0, MissingError{}
+			return 0, MissingError{k}
 		}
 		doc = &lolrusDoc{}
 		bucket.Docs[k] = doc
 	} else {
 		if doc.Raw == nil && raw == nil {
-			return 0, MissingError{}
+			return 0, MissingError{k}
 		} else if doc.Raw != nil && opt&AddOnly != 0 {
 			return 0, ErrKeyExists
 		}

@@ -117,7 +117,7 @@ func (bucket *lolrus) View(docName, viewName string, params map[string]interface
 	var result ViewResult
 	view, resultMaybe := bucket.findView(docName, viewName, stale)
 	if view == nil {
-		return result, MissingError{}
+		return result, MissingError{docName + "/" + viewName}
 	} else if resultMaybe != nil {
 		result = *resultMaybe
 	} else {
