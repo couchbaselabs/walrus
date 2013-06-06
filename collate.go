@@ -13,9 +13,18 @@ import (
 	"fmt"
 
 	"code.google.com/p/go.exp/locale/collate"
+	"code.google.com/p/go.text/locale"
 )
 
-var icuCollator = collate.New("icu")
+var icuCollator = collate.New(defaultLocale())
+
+func defaultLocale() locale.ID {
+	l, e := locale.Parse("icu")
+	if e != nil {
+		panic(e)
+	}
+	return l
+}
 
 // CouchDB-compatible collation/comparison of JSON values.
 // See: http://wiki.apache.org/couchdb/View_collation#Collation_Specification
