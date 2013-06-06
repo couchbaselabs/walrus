@@ -30,14 +30,14 @@ func TestDeleteThenAdd(t *testing.T) {
 	defer bucket.Close()
 
 	var value interface{}
-	assert.DeepEquals(t, bucket.Get("key", &value), MissingError{})
+	assert.DeepEquals(t, bucket.Get("key", &value), MissingError{"key"})
 	added, err := bucket.Add("key", 0, "value")
 	assertNoError(t, err, "Add")
 	assert.True(t, added)
 	assertNoError(t, bucket.Get("key", &value), "Get")
 	assert.Equals(t, value, "value")
 	assertNoError(t, bucket.Delete("key"), "Delete")
-	assert.DeepEquals(t, bucket.Get("key", &value), MissingError{})
+	assert.DeepEquals(t, bucket.Get("key", &value), MissingError{"key"})
 	added, err = bucket.Add("key", 0, "value")
 	assertNoError(t, err, "Add")
 	assert.True(t, added)
