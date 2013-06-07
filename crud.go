@@ -12,6 +12,7 @@ package walrus
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"runtime"
 	"strconv"
@@ -50,6 +51,7 @@ type lolrusDoc struct {
 // Creates a simple in-memory Bucket, suitable only for amusement purposes & testing.
 // The Bucket is created empty. There is no way to save it persistently. The name is ignored.
 func NewBucket(bucketName string) Bucket {
+	ohai("NewBucket %s", bucketName)
 	bucket := &lolrus{
 		name: bucketName,
 		lolrusData: lolrusData{
@@ -152,8 +154,24 @@ func (bucket *lolrus) Close() {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
-	bucket._closePersist()
-	bucket.views = nil
+	if bucket.Docs != nil {
+		ohai("Close %s", bucket.GetName())
+		bucket._closePersist()
+		bucket.Docs = nil
+		bucket.DesignDocs = nil
+		bucket.views = nil
+	}
+}
+
+func (bucket *lolrus) assertNotClosed() {
+	if bucket.Docs == nil {
+		panic(fmt.Sprintf("Accessing closed Walrus bucket %q", bucket.name))
+	}
+}
+
+func (bucket *lolrus) missingError(key string) error {
+	bucket.assertNotClosed()
+	return MissingError{key}
 }
 
 //////// GET:
@@ -164,7 +182,7 @@ func (bucket *lolrus) GetRaw(k string) ([]byte, error) {
 
 	doc := bucket.Docs[k]
 	if doc == nil || doc.Raw == nil {
-		return nil, MissingError{k}
+		return nil, bucket.missingError(k)
 	}
 	return doc.Raw, nil
 }
@@ -230,14 +248,15 @@ func (bucket *lolrus) write(k string, exp int, raw []byte, opt WriteOptions) (se
 
 	doc := bucket.Docs[k]
 	if doc == nil {
+		bucket.assertNotClosed()
 		if raw == nil {
-			return 0, MissingError{k}
+			return 0, bucket.missingError(k)
 		}
 		doc = &lolrusDoc{}
 		bucket.Docs[k] = doc
 	} else {
 		if doc.Raw == nil && raw == nil {
-			return 0, MissingError{k}
+			return 0, bucket.missingError(k)
 		} else if doc.Raw != nil && opt&AddOnly != 0 {
 			return 0, ErrKeyExists
 		}
@@ -327,6 +346,7 @@ func (bucket *lolrus) getDoc(k string) lolrusDoc {
 
 	docPtr := bucket.Docs[k]
 	if docPtr == nil {
+		bucket.assertNotClosed()
 		return lolrusDoc{}
 	}
 	return *docPtr
@@ -370,6 +390,8 @@ func (bucket *lolrus) Incr(k string, amt, def uint64, exp int) (uint64, error) {
 		if err != nil {
 			return 0, err
 		}
+	} else {
+		bucket.assertNotClosed()
 	}
 	if amt != 0 {
 		counter += amt
