@@ -42,8 +42,8 @@ type TapArguments struct {
 const TapNoBackfill = math.MaxUint64
 
 type tapFeedImpl struct {
+	bucket  *lolrus
 	channel chan TapEvent
-	closer  chan bool
 	args    TapArguments
 }
 
@@ -52,8 +52,8 @@ type tapFeedImpl struct {
 func (bucket *lolrus) StartTapFeed(args TapArguments) (TapFeed, error) {
 	channel := make(chan TapEvent, 10)
 	feed := &tapFeedImpl{
+		bucket:  bucket,
 		channel: channel,
-		closer:  make(chan bool),
 		args:    args,
 	}
 
@@ -66,10 +66,12 @@ func (bucket *lolrus) StartTapFeed(args TapArguments) (TapFeed, error) {
 			close(feed.channel)
 		} else {
 			// Now that the backfill (if any) is over, listen for future events:
-			bucket.lock.RLock()
-			defer bucket.lock.RUnlock()
+			bucket.lock.Lock()
+			defer bucket.lock.Unlock()
 
-			bucket.tapFeeds = append(bucket.tapFeeds, feed)
+			if feed.bucket != nil {
+				bucket.tapFeeds = append(bucket.tapFeeds, feed)
+			}
 		}
 	}()
 
@@ -82,9 +84,16 @@ func (feed *tapFeedImpl) Events() <-chan TapEvent {
 
 // Closes a TapFeed. Call this if you stop using a TapFeed before its channel ends.
 func (feed *tapFeedImpl) Close() {
-	close(feed.closer)
-	feed.closer = nil
-	feed.channel = nil
+	feed.bucket.lock.Lock()
+	defer feed.bucket.lock.Unlock()
+
+	for i, afeed := range feed.bucket.tapFeeds {
+		if afeed == feed {
+			feed.bucket.tapFeeds[i] = nil
+		}
+	}
+	close(feed.channel)
+	feed.bucket = nil
 }
 
 func (bucket *lolrus) backfill(feed *tapFeedImpl) {
@@ -96,8 +105,8 @@ func (bucket *lolrus) backfill(feed *tapFeedImpl) {
 }
 
 func (bucket *lolrus) copyBackfillEvents(startSequence uint64) []TapEvent {
-	bucket.lock.Lock()
-	defer bucket.lock.Unlock()
+	bucket.lock.RLock()
+	defer bucket.lock.RUnlock()
 
 	events := make([]TapEvent, 0, len(bucket.Docs))
 	for docid, doc := range bucket.Docs {
@@ -112,11 +121,12 @@ func (bucket *lolrus) copyBackfillEvents(startSequence uint64) []TapEvent {
 	return events
 }
 
-func (bucket *lolrus) postTapEvent(event TapEvent) {
+// Caller must have the bucket's RLock, because this method iterates bucket.tapFeeds
+func (bucket *lolrus) _postTapEvent(event TapEvent) {
 	eventNoValue := event
 	eventNoValue.Value = nil
 	for _, feed := range bucket.tapFeeds {
-		if feed.channel != nil {
+		if feed != nil && feed.channel != nil {
 			if feed.args.KeysOnly {
 				feed.channel <- eventNoValue
 			} else {
@@ -126,16 +136,16 @@ func (bucket *lolrus) postTapEvent(event TapEvent) {
 	}
 }
 
-func (bucket *lolrus) postTapMutationEvent(key string, value []byte) {
-	bucket.postTapEvent(TapEvent{
+func (bucket *lolrus) _postTapMutationEvent(key string, value []byte) {
+	bucket._postTapEvent(TapEvent{
 		Opcode: TapMutation,
 		Key:    []byte(key),
 		Value:  value,
 	})
 }
 
-func (bucket *lolrus) postTapDeletionEvent(key string) {
-	bucket.postTapEvent(TapEvent{
+func (bucket *lolrus) _postTapDeletionEvent(key string) {
+	bucket._postTapEvent(TapEvent{
 		Opcode: TapDeletion,
 		Key:    []byte(key),
 	})

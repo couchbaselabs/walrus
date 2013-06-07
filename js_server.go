@@ -60,7 +60,7 @@ func NewJSServer(funcSource string) (*JSServer, error) {
 	}
 
 	server.requests = make(chan jsServerRequest)
-	go server.serve()
+	go server.serve(server.requests)
 
 	return server, nil
 }
@@ -186,8 +186,8 @@ type jsServerResponse struct {
 	err    error
 }
 
-func (server *JSServer) serve() {
-	for request := range server.requests {
+func (server *JSServer) serve(requests <-chan jsServerRequest) {
+	for request := range requests {
 		var response jsServerResponse
 		switch request.mode {
 		case kCallFunction:
@@ -245,5 +245,4 @@ func (server *JSServer) SetFunction(fnSource string) (bool, error) {
 // Stops the JS server.
 func (server *JSServer) Stop() {
 	close(server.requests)
-	server.requests = nil
 }

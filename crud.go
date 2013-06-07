@@ -139,16 +139,20 @@ func (bucket *lolrus) GetName() string {
 }
 
 func (bucket *lolrus) Close() {
-	bucket.lock.RLock()
-	defer bucket.lock.RUnlock()
-
-	bucket._closePersist()
-
-	for _, ddoc := range bucket.views {
-		for _, view := range ddoc {
-			view.mapFunction.Stop()
+	// Remove the bucket from the global 'buckets' map:
+	bucketsLock.Lock()
+	defer bucketsLock.Unlock()
+	for key, value := range buckets {
+		if value == bucket {
+			delete(buckets, key)
+			break
 		}
 	}
+
+	bucket.lock.Lock()
+	defer bucket.lock.Unlock()
+
+	bucket._closePersist()
 	bucket.views = nil
 }
 
@@ -196,13 +200,6 @@ func (bucket *lolrus) Write(k string, exp int, v interface{}, opt WriteOptions) 
 		return
 	}
 
-	// Post a TAP notification:
-	if data != nil {
-		bucket.postTapMutationEvent(k, data)
-	} else {
-		bucket.postTapDeletionEvent(k)
-	}
-
 	// Wait for persistent save, if that flag is set:
 	return bucket.waitAfterWrite(seq, opt)
 }
@@ -248,6 +245,14 @@ func (bucket *lolrus) write(k string, exp int, raw []byte, opt WriteOptions) (se
 	doc.Raw = raw
 	doc.IsJSON = (opt&Raw == 0)
 	doc.Sequence = bucket._nextSequence()
+
+	// Post a TAP notification:
+	if raw != nil {
+		bucket._postTapMutationEvent(k, raw)
+	} else {
+		bucket._postTapDeletionEvent(k)
+	}
+
 	return doc.Sequence, nil
 }
 
@@ -304,7 +309,6 @@ func (bucket *lolrus) WriteUpdate(k string, exp int, callback WriteUpdateFunc) e
 		}
 	}
 	// Document has been updated:
-	bucket.postTapMutationEvent(k, doc.Raw)
 	return bucket.waitAfterWrite(seq, opts)
 }
 
@@ -343,6 +347,7 @@ func (bucket *lolrus) updateDoc(k string, doc *lolrusDoc) uint64 {
 	doc.Sequence = bucket._nextSequence()
 	doc.IsJSON = (doc.Raw != nil) // Doc is assumed to be JSON, unless deleted. (Used by Update)
 	bucket.Docs[k] = doc
+	bucket._postTapMutationEvent(k, doc.Raw)
 	return doc.Sequence
 }
 
@@ -374,7 +379,7 @@ func (bucket *lolrus) Incr(k string, amt, def uint64, exp int) (uint64, error) {
 			Sequence: bucket._nextSequence(),
 		}
 		bucket.Docs[k] = doc
-		bucket.postTapMutationEvent(k, doc.Raw)
+		bucket._postTapMutationEvent(k, doc.Raw)
 	}
 	return counter, nil
 }
