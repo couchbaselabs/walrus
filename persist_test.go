@@ -21,12 +21,12 @@ func TestSave(t *testing.T) {
 	os.Remove(kTestPath)
 
 	bucket := NewBucket("persisty").(*lolrus)
+	defer bucket.Close()
 	bucket.Add("key1", 0, `{"value": 1}`)
 	bucket.AddRaw("key2", 0, []byte("value2"))
 	bucket.path = kTestPath
 	err := bucket._save()
 	assertNoError(t, err, "couldn't save")
-	bucket.Close()
 
 	bucket2, err := load(kTestPath)
 	assertNoError(t, err, "couldn't load")
@@ -38,9 +38,9 @@ func TestSave(t *testing.T) {
 	assertNoError(t, err, "couldn't re-save")
 
 	bucket2, err = load(kTestPath)
+	defer bucket2.Close()
 	assertNoError(t, err, "couldn't re-load")
 	assert.DeepEquals(t, bucket2.lolrusData, bucket.lolrusData)
-	bucket2.Close()
 }
 
 func TestLoadOrNew(t *testing.T) {
