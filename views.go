@@ -250,11 +250,23 @@ func ProcessViewResult(result ViewResult, params map[string]interface{},
 	}
 
 	if reduce && reduceFunction != "" {
-		//TODO: Apply reduce function!!
-		return result, fmt.Errorf("Reduce is not supported yet, sorry")
+		if err := ReduceViewResult(reduceFunction, &result); err != nil {
+			return result, err
+		}
 	}
 
 	result.TotalRows = len(result.Rows)
 	ohai("\t... view returned %d rows", result.TotalRows)
 	return result, nil
+}
+
+func ReduceViewResult(reduceFunction string, result* ViewResult) (error) {
+	switch reduceFunction {
+	case "_count":
+		result.Rows = []ViewRow{{Value: float64(len(result.Rows))}}
+		return nil
+	default:
+		// TODO: Implement other reduce functions!
+		return fmt.Errorf("Walrus only supports _count reduce function")
+	}
 }
