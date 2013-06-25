@@ -57,12 +57,6 @@ func MakeMeta(docid string) map[string]interface{} {
 	return map[string]interface{}{"id": docid}
 }
 
-// This is just for testing
-func (mapper *JSMapFunction) callMapper(doc string, docid string) ([]ViewRow, error) {
-	res, err := mapper.js.DirectCall(JSONString(doc), MakeMeta(docid))
-	return res.([]ViewRow), err
-}
-
 // Calls a JSMapFunction.
 func (mapper *JSMapFunction) CallFunction(doc string, docid string) ([]ViewRow, error) {
 	result1, err := mapper.js.Call(JSONString(doc), MakeMeta(docid))

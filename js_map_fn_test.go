@@ -18,19 +18,18 @@ import (
 func TestEmitFunction(t *testing.T) {
 	mapper, err := NewJSMapFunction(`function(doc) {emit("key", "value"); emit("k2","v2")}`)
 	assertNoError(t, err, "Couldn't create mapper")
-	rows, err := mapper.callMapper(`{}`, "doc1")
-	assertNoError(t, err, "callMapper failed")
+	rows, err := mapper.CallFunction(`{}`, "doc1")
+	assertNoError(t, err, "CallFunction failed")
 	assert.Equals(t, len(rows), 2)
-	assert.DeepEquals(t, rows[0], ViewRow{Key: "key", Value: "value"})
-	assert.DeepEquals(t, rows[1], ViewRow{Key: "k2", Value: "v2"})
-	// (callMapper doesn't set the ID field.)
+	assert.DeepEquals(t, rows[0], ViewRow{ID: "doc1", Key: "key", Value: "value"})
+	assert.DeepEquals(t, rows[1], ViewRow{ID: "doc1", Key: "k2", Value: "v2"})
 }
 
 func testMap(t *testing.T, mapFn string, doc string) []ViewRow {
 	mapper, err := NewJSMapFunction(mapFn)
 	assertNoError(t, err, "Couldn't create mapper")
-	rows, err := mapper.callMapper(doc, "doc1")
-	assertNoError(t, err, "callMapper failed")
+	rows, err := mapper.CallFunction(doc, "doc1")
+	assertNoError(t, err, "CallFunction failed")
 	return rows
 }
 
@@ -39,30 +38,33 @@ func TestInputParse(t *testing.T) {
 	rows := testMap(t, `function(doc) {emit(doc.key, doc.value);}`,
 		`{"key": "k", "value": "v"}`)
 	assert.Equals(t, len(rows), 1)
-	assert.DeepEquals(t, rows[0], ViewRow{Key: "k", Value: "v"})
+	assert.DeepEquals(t, rows[0], ViewRow{ID: "doc1", Key: "k", Value: "v"})
 }
 
 // Test different types of keys/values:
 func TestKeyTypes(t *testing.T) {
 	rows := testMap(t, `function(doc) {emit(doc.key, doc.value);}`,
-		`{"key": true, "value": false}`)
-	assert.DeepEquals(t, rows[0], ViewRow{Key: true, Value: false})
+		`{ID: "doc1", "key": true, "value": false}`)
+	assert.DeepEquals(t, rows[0], ViewRow{ID: "doc1", Key: true, Value: false})
 	rows = testMap(t, `function(doc) {emit(doc.key, doc.value);}`,
-		`{"key": null, "value": 0}`)
-	assert.DeepEquals(t, rows[0], ViewRow{Key: nil, Value: float64(0)})
+		`{ID: "doc1", "key": null, "value": 0}`)
+	assert.DeepEquals(t, rows[0], ViewRow{ID: "doc1", Key: nil, Value: float64(0)})
 	rows = testMap(t, `function(doc) {emit(doc.key, doc.value);}`,
-		`{"key": ["foo", 23, []], "value": [null]}`)
+		`{ID: "doc1", "key": ["foo", 23, []], "value": [null]}`)
 	assert.DeepEquals(t, rows[0],
-		ViewRow{Key: []interface{}{"foo", 23.0, []interface{}{}},
-			Value: []interface{}{nil}})
+		ViewRow{
+			ID:    "doc1",
+			Key:   []interface{}{"foo", 23.0, []interface{}{}},
+			Value: []interface{}{nil},
+		})
 }
 
 // Empty/no-op map fn
 func TestEmptyJSMapFunction(t *testing.T) {
 	mapper, err := NewJSMapFunction(`function(doc) {}`)
 	assertNoError(t, err, "Couldn't create mapper")
-	rows, err := mapper.callMapper(`{"key": "k", "value": "v"}`, "doc1")
-	assertNoError(t, err, "callMapper failed")
+	rows, err := mapper.CallFunction(`{"key": "k", "value": "v"}`, "doc1")
+	assertNoError(t, err, "CallFunction failed")
 	assert.Equals(t, len(rows), 0)
 }
 
@@ -70,8 +72,8 @@ func TestEmptyJSMapFunction(t *testing.T) {
 func TestMeta(t *testing.T) {
 	mapper, err := NewJSMapFunction(`function(doc,meta) {if (meta.id!="doc1") throw("bad ID");}`)
 	assertNoError(t, err, "Couldn't create mapper")
-	rows, err := mapper.callMapper(`{"key": "k", "value": "v"}`, "doc1")
-	assertNoError(t, err, "callMapper failed")
+	rows, err := mapper.CallFunction(`{"key": "k", "value": "v"}`, "doc1")
+	assertNoError(t, err, "CallFunction failed")
 	assert.Equals(t, len(rows), 0)
 }
 
