@@ -140,7 +140,7 @@ func (bucket *lolrus) _postTapMutationEvent(key string, value []byte) {
 	bucket._postTapEvent(TapEvent{
 		Opcode: TapMutation,
 		Key:    []byte(key),
-		Value:  value,
+		Value:  copySlice(value),
 	})
 }
 

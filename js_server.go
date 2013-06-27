@@ -11,7 +11,6 @@ package walrus
 
 import (
 	"github.com/robertkrimen/otto"
-	"log"
 )
 
 const kMaxRunners = 4
@@ -54,7 +53,6 @@ func (server *JSServer) DefineNativeFunction(name string, function NativeFunctio
 }
 
 func (server *JSServer) createRunner() (*JSRunner, error) {
-	log.Printf("JSServer: Creating a new JSRunner")
 	runner, err := NewJSRunner(server.fnSource)
 	if err != nil {
 		return nil, err
@@ -82,7 +80,6 @@ func (server *JSServer) returnRunner(runner *JSRunner) {
 	select {
 	case server.runners <- runner:
 	default:
-		log.Printf("JSServer: dropped runner on floor")
 		// Drop it on the floor if the pool is already full
 	}
 }

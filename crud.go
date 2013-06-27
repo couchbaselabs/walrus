@@ -176,7 +176,17 @@ func (bucket *lolrus) missingError(key string) error {
 
 //////// GET:
 
-func (bucket *lolrus) GetRaw(k string) ([]byte, error) {
+func copySlice(slice []byte) []byte {
+	if slice == nil {
+		return nil
+	}
+	copied := make([]byte, len(slice))
+	copy(copied, slice)
+	return copied
+}
+
+// Private version of GetRaw returns an uncopied slice.
+func (bucket *lolrus) getRaw(k string) ([]byte, error) {
 	bucket.lock.RLock()
 	defer bucket.lock.RUnlock()
 
@@ -184,11 +194,16 @@ func (bucket *lolrus) GetRaw(k string) ([]byte, error) {
 	if doc == nil || doc.Raw == nil {
 		return nil, bucket.missingError(k)
 	}
-	return doc.Raw, nil
+	return copySlice(doc.Raw), nil
+}
+
+func (bucket *lolrus) GetRaw(k string) ([]byte, error) {
+	raw, err := bucket.getRaw(k)
+	return copySlice(raw), err // Public API returns copied slice to avoid client altering doc
 }
 
 func (bucket *lolrus) Get(k string, rv interface{}) error {
-	raw, err := bucket.GetRaw(k)
+	raw, err := bucket.getRaw(k)
 	if err != nil {
 		return err
 	}
@@ -203,7 +218,7 @@ func (bucket *lolrus) Write(k string, exp int, v interface{}, opt WriteOptions) 
 	var data []byte
 	if !isJSON {
 		if v != nil {
-			data = v.([]byte)
+			data = copySlice(v.([]byte))
 		}
 	} else {
 		data, err = json.Marshal(v)
@@ -320,7 +335,7 @@ func (bucket *lolrus) WriteUpdate(k string, exp int, callback WriteUpdateFunc) e
 	var seq uint64
 	for {
 		doc = bucket.getDoc(k)
-		doc.Raw, opts, err = callback(doc.Raw)
+		doc.Raw, opts, err = callback(copySlice(doc.Raw))
 		if err != nil {
 			return err
 		} else if seq = bucket.updateDoc(k, &doc); seq > 0 {
