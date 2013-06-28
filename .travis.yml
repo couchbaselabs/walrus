@@ -1,8 +1,7 @@
 language: go
 
 go:
- - 1.1
- - tip
+ - 1.1.1
 
 script:
   - go get github.com/couchbaselabs/go.assert
