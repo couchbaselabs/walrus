@@ -44,7 +44,17 @@ type JSRunner struct {
 // Creates a new JSRunner that will run a JavaScript function.
 // 'funcSource' should look like "function(x,y) { ... }"
 func NewJSRunner(funcSource string) (*JSRunner, error) {
-	runner := &JSRunner{js: otto.New(), fn: otto.UndefinedValue()}
+	runner := &JSRunner{}
+	if err := runner.Init(funcSource); err != nil {
+		return nil, err
+	}
+	return runner, nil
+}
+
+// Initializes a JSRunner.
+func (runner *JSRunner) Init(funcSource string) error {
+	runner.js = otto.New()
+	runner.fn = otto.UndefinedValue()
 
 	runner.DefineNativeFunction("log", func(call otto.FunctionCall) otto.Value {
 		var output string
@@ -57,12 +67,13 @@ func NewJSRunner(funcSource string) (*JSRunner, error) {
 	})
 
 	if _, err := runner.SetFunction(funcSource); err != nil {
-		return nil, err
+		return err
 	}
 
-	return runner, nil
+	return nil
 }
 
+// Sets the JavaScript function the runner executes.
 func (runner *JSRunner) SetFunction(funcSource string) (bool, error) {
 	if funcSource == runner.fnSource {
 		return false, nil // no-op

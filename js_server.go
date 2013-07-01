@@ -10,81 +10,88 @@
 package walrus
 
 import (
-	"github.com/robertkrimen/otto"
+	"sync"
 )
 
-const kMaxRunners = 4
-
-// Go interface to a JavaScript function (like a map/reduce/channelmap/validation function.)
-// Each JSServer object compiles a single function into a JavaScript runtime, and lets you
-// make thread-safe calls to that function.
+// Thread-safe wrapper around a JSRunner.
 type JSServer struct {
+	factory  JSServerTaskFactory
+	tasks    chan JSServerTask
 	fnSource string
-
-	nativeFns map[string]NativeFunction
-
-	// Optional function that will be called just before the JS function.
-	Before func()
-
-	// Optional function that will be called after the JS function returns, and can convert
-	// its output from JS (Otto) values to Go values.
-	After func(otto.Value, error) (interface{}, error)
-
-	runners chan *JSRunner
+	lock     sync.RWMutex // Protects access to .fnSource
 }
+
+// Abstract interface for a callable interpreted function. JSRunner implements this.
+type JSServerTask interface {
+	SetFunction(funcSource string) (bool, error)
+	Call(inputs ...interface{}) (interface{}, error)
+}
+
+// Factory function that creates JSServerTasks.
+type JSServerTaskFactory func(fnSource string) (JSServerTask, error)
 
 // Creates a new JSServer that will run a JavaScript function.
 // 'funcSource' should look like "function(x,y) { ... }"
-func NewJSServer(funcSource string) (*JSServer, error) {
+func NewJSServer(funcSource string, maxTasks int, factory JSServerTaskFactory) *JSServer {
+	if factory == nil {
+		factory = func(fnSource string) (JSServerTask, error) {
+			return NewJSRunner(fnSource)
+		}
+	}
 	server := &JSServer{
-		fnSource:  funcSource,
-		nativeFns: map[string]NativeFunction{},
-		runners:   make(chan *JSRunner, kMaxRunners),
+		factory:  factory,
+		fnSource: funcSource,
+		tasks:    make(chan JSServerTask, maxTasks),
 	}
-	return server, nil
+	return server
 }
 
-// Lets you define native helper functions (for example, the "emit" function to be called by
-// JS map functions) in the main namespace of the JS runtime.
-// This method is not thread-safe and should only be called before making any calls to the
-// main JS function.
-func (server *JSServer) DefineNativeFunction(name string, function NativeFunction) {
-	server.nativeFns[name] = function
+func (server *JSServer) Function() string {
+	server.lock.RLock()
+	defer server.lock.RUnlock()
+	return server.fnSource
 }
 
-func (server *JSServer) createRunner() (*JSRunner, error) {
-	runner, err := NewJSRunner(server.fnSource)
-	if err != nil {
-		return nil, err
+// Public thread-safe entry point for changing the JS function.
+func (server *JSServer) SetFunction(fnSource string) (bool, error) {
+	server.lock.Lock()
+	defer server.lock.Unlock()
+	if fnSource == server.fnSource {
+		return false, nil
 	}
-	runner.Before = server.Before
-	runner.After = server.After
-	for name, fn := range server.nativeFns {
-		runner.DefineNativeFunction(name, fn)
-	}
-	return runner, err
+	server.fnSource = fnSource
+	return true, nil
 }
 
-func (server *JSServer) getRunner() (*JSRunner, error) {
-	var err error
+func (server *JSServer) getTask() (task JSServerTask, err error) {
+	fnSource := server.Function()
 	select {
-	case runner := <-server.runners:
-		_, err = runner.SetFunction(server.fnSource)
-		return runner, err
+	case task = <-server.tasks:
+		_, err = task.SetFunction(fnSource)
 	default:
-		return server.createRunner()
+		task, err = server.factory(fnSource)
 	}
+	return
 }
 
-func (server *JSServer) returnRunner(runner *JSRunner) {
+func (server *JSServer) returnTask(task JSServerTask) {
 	select {
-	case server.runners <- runner:
+	case server.tasks <- task:
 	default:
 		// Drop it on the floor if the pool is already full
 	}
 }
 
-//////// SERVER:
+type WithTaskFunc func(JSServerTask) (interface{}, error)
+
+func (server *JSServer) WithTask(fn WithTaskFunc) (interface{}, error) {
+	task, err := server.getTask()
+	if err != nil {
+		return nil, err
+	}
+	defer server.returnTask(task)
+	return fn(task)
+}
 
 // Public thread-safe entry point for invoking the JS function.
 // The input parameters are JavaScript expressions (most likely JSON) that will be parsed and
@@ -92,12 +99,11 @@ func (server *JSServer) returnRunner(runner *JSRunner) {
 // The output value will be nil unless a custom 'After' function has been installed, in which
 // case it'll be the result of that function.
 func (server *JSServer) CallWithJSON(jsonParams ...string) (interface{}, error) {
-	runner, err := server.getRunner()
-	if err != nil {
-		return nil, err
+	goParams := make([]JSONString, len(jsonParams))
+	for i, str := range jsonParams {
+		goParams[i] = JSONString(str)
 	}
-	defer server.returnRunner(runner)
-	return runner.CallWithJSON(jsonParams...)
+	return server.Call(goParams)
 }
 
 // Public thread-safe entry point for invoking the JS function.
@@ -106,30 +112,7 @@ func (server *JSServer) CallWithJSON(jsonParams ...string) (interface{}, error) 
 // The output value will be nil unless a custom 'After' function has been installed, in which
 // case it'll be the result of that function.
 func (server *JSServer) Call(goParams ...interface{}) (interface{}, error) {
-	runner, err := server.getRunner()
-	if err != nil {
-		return nil, err
-	}
-	defer server.returnRunner(runner)
-	return runner.Call(goParams...)
-}
-
-// Public thread-safe entry point for changing the JS function.
-func (server *JSServer) SetFunction(fnSource string) (bool, error) {
-	if fnSource == server.fnSource {
-		return false, nil
-	}
-	server.fnSource = fnSource
-	return true, nil
-}
-
-//////// DEPRECATED API:
-
-// Deprecated synonym for CallWithJSON, kept around for backward compatibility.
-func (server *JSServer) CallFunction(jsonParams []string) (interface{}, error) {
-	return server.CallWithJSON(jsonParams...)
-}
-
-// Stops the JS server. (For backward compatibility only; does nothing)
-func (server *JSServer) Stop() {
+	return server.WithTask(func(task JSServerTask) (interface{}, error) {
+		return task.Call(goParams...)
+	})
 }

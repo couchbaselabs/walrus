@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"runtime"
 	"sort"
 )
 
@@ -48,16 +47,12 @@ func (bucket *lolrus) _compileDesignDoc(docname string, design *DesignDoc) error
 	}
 	ddoc := lolrusDesignDoc{}
 	for name, fns := range design.Views {
-		jsserver, err := NewJSMapFunction(fns.Map)
-		if err != nil {
-			return err
-		}
+		jsserver := NewJSMapFunction(fns.Map)
 		view := &lolrusView{
 			mapFunction:    jsserver,
 			reduceFunction: fns.Reduce,
 		}
 		ddoc[name] = view
-		runtime.SetFinalizer(view, func(view *lolrusView) { view.mapFunction.Stop() })
 	}
 	bucket.views[docname] = ddoc
 	return nil

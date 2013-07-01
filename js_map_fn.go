@@ -15,23 +15,25 @@ import (
 	"github.com/robertkrimen/otto"
 )
 
+const kTaskCacheSize = 4
+
 // A compiled JavaScript 'map' function, API-compatible with Couchbase Server 2.0.
-type JSMapFunction struct {
+// Based on JSRunner, so this is not thread-safe; use its wrapper JSMapFunction for that.
+type jsMapTask struct {
+	JSRunner
 	output []ViewRow
-	js     *JSServer
 }
 
-// Compiles a JavaScript map function to a JSMapFunction object.
-func NewJSMapFunction(funcSource string) (*JSMapFunction, error) {
-	mapper := &JSMapFunction{}
-	var err error
-	mapper.js, err = NewJSServer(funcSource)
+// Compiles a JavaScript map function to a jsMapTask object.
+func newJsMapTask(funcSource string) (JSServerTask, error) {
+	mapper := &jsMapTask{}
+	err := mapper.Init(funcSource)
 	if err != nil {
 		return nil, err
 	}
 
 	// Implementation of the 'emit()' callback:
-	mapper.js.DefineNativeFunction("emit", func(call otto.FunctionCall) otto.Value {
+	mapper.DefineNativeFunction("emit", func(call otto.FunctionCall) otto.Value {
 		key, err1 := call.ArgumentList[0].Export()
 		value, err2 := call.ArgumentList[1].Export()
 		if err1 != nil || err2 != nil {
@@ -41,10 +43,10 @@ func NewJSMapFunction(funcSource string) (*JSMapFunction, error) {
 		return otto.UndefinedValue()
 	})
 
-	mapper.js.Before = func() {
+	mapper.Before = func() {
 		mapper.output = []ViewRow{}
 	}
-	mapper.js.After = func(result otto.Value, err error) (interface{}, error) {
+	mapper.After = func(result otto.Value, err error) (interface{}, error) {
 		output := mapper.output
 		mapper.output = nil
 		return output, err
@@ -52,14 +54,26 @@ func NewJSMapFunction(funcSource string) (*JSMapFunction, error) {
 	return mapper, nil
 }
 
-// Returns a Couchbase-compatible 'meta' object, given a document ID
-func MakeMeta(docid string) map[string]interface{} {
-	return map[string]interface{}{"id": docid}
+//////// JSMapFunction
+
+// A thread-safe wrapper around a jsMapTask, i.e. a Couchbase-Server-compatible JavaScript
+// 'map' function.
+type JSMapFunction struct {
+	*JSServer
 }
 
-// Calls a JSMapFunction.
+func NewJSMapFunction(fnSource string) *JSMapFunction {
+	return &JSMapFunction{
+		JSServer: NewJSServer(fnSource, kTaskCacheSize,
+			func(fnSource string) (JSServerTask, error) {
+				return newJsMapTask(fnSource)
+			}),
+	}
+}
+
+// Calls a jsMapTask.
 func (mapper *JSMapFunction) CallFunction(doc string, docid string) ([]ViewRow, error) {
-	result1, err := mapper.js.Call(JSONString(doc), MakeMeta(docid))
+	result1, err := mapper.Call(JSONString(doc), MakeMeta(docid))
 	if err != nil {
 		return nil, err
 	}
@@ -70,14 +84,7 @@ func (mapper *JSMapFunction) CallFunction(doc string, docid string) ([]ViewRow, 
 	return rows, nil
 }
 
-// Updates the JavaScript function that a JSMapFunction instance runs.
-// Subsequent calls to CallFunction will use the new function.
-func (mapper *JSMapFunction) SetFunction(fnSource string) (bool, error) {
-	return mapper.js.SetFunction(fnSource)
-}
-
-// Stops the mapper's background goroutine. The mapper can't be garbage-collected
-// until this is called.
-func (mapper *JSMapFunction) Stop() {
-	mapper.js.Stop()
+// Returns a Couchbase-compatible 'meta' object, given a document ID
+func MakeMeta(docid string) map[string]interface{} {
+	return map[string]interface{}{"id": docid}
 }
