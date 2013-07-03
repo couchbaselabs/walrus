@@ -156,7 +156,8 @@ func (bucket *lolrus) updateView(view *lolrusView, toSequence uint64) ViewResult
 			result.Rows = append(result.Rows, rows...)
 		}
 	}
-	sort.Sort(result.Rows)
+	sort.Sort(&result)
+	result.collator.Clear() // don't keep collation state around
 
 	view.lastIndexedSequence = bucket.LastSeq
 	view.index = result
@@ -206,9 +207,11 @@ func ProcessViewResult(result ViewResult, params map[string]interface{},
 		}
 	}
 
+	var collator JSONCollator
+
 	if startkey != nil {
 		i := sort.Search(len(result.Rows), func(i int) bool {
-			return CollateJSON(result.Rows[i].Key, startkey) >= 0
+			return collator.Collate(result.Rows[i].Key, startkey) >= 0
 		})
 		result.Rows = result.Rows[i:]
 	}
@@ -223,7 +226,7 @@ func ProcessViewResult(result ViewResult, params map[string]interface{},
 			limit = -1
 		}
 		i := sort.Search(len(result.Rows), func(i int) bool {
-			return CollateJSON(result.Rows[i].Key, endkey) > limit
+			return collator.Collate(result.Rows[i].Key, endkey) > limit
 		})
 		result.Rows = result.Rows[:i]
 	}
@@ -255,7 +258,7 @@ func ProcessViewResult(result ViewResult, params map[string]interface{},
 	return result, nil
 }
 
-func ReduceViewResult(reduceFunction string, result* ViewResult) (error) {
+func ReduceViewResult(reduceFunction string, result *ViewResult) error {
 	switch reduceFunction {
 	case "_count":
 		result.Rows = []ViewRow{{Value: float64(len(result.Rows))}}
@@ -264,4 +267,20 @@ func ReduceViewResult(reduceFunction string, result* ViewResult) (error) {
 		// TODO: Implement other reduce functions!
 		return fmt.Errorf("Walrus only supports _count reduce function")
 	}
+}
+
+//////// VIEW RESULT: (implementation of sort.Interface interface)
+
+func (result *ViewResult) Len() int {
+	return len(result.Rows)
+}
+
+func (result *ViewResult) Swap(i, j int) {
+	temp := result.Rows[i]
+	result.Rows[i] = result.Rows[j]
+	result.Rows[j] = temp
+}
+
+func (result *ViewResult) Less(i, j int) bool {
+	return result.collator.Collate(result.Rows[i].Key, result.Rows[j].Key) < 0
 }

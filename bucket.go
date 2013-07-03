@@ -52,6 +52,7 @@ type ViewResult struct {
 	TotalRows int `json:"total_rows"`
 	Rows      ViewRows
 	Errors    []ViewError
+	collator  JSONCollator
 }
 
 type ViewRows []ViewRow
@@ -92,22 +93,6 @@ func (ve ViewError) Error() string {
 type UpdateFunc func(current []byte) (updated []byte, err error)
 
 type WriteUpdateFunc func(current []byte) (updated []byte, opt WriteOptions, err error)
-
-//////// VIEW ROWS: (implementation of sort.Interface interface)
-
-func (rows ViewRows) Len() int {
-	return len(rows)
-}
-
-func (rows ViewRows) Swap(i, j int) {
-	temp := rows[i]
-	rows[i] = rows[j]
-	rows[j] = temp
-}
-
-func (rows ViewRows) Less(i, j int) bool {
-	return CollateJSON(rows[i].Key, rows[j].Key) < 0
-}
 
 // Set this to true to enable logging
 
