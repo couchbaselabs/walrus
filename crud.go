@@ -330,12 +330,12 @@ func (bucket *lolrus) Delete(k string) error {
 
 func (bucket *lolrus) WriteUpdate(k string, exp int, callback WriteUpdateFunc) error {
 	var err error
-	var doc lolrusDoc
 	var opts WriteOptions
 	var seq uint64
 	for {
-		doc = bucket.getDoc(k)
+		var doc lolrusDoc = bucket.getDoc(k)
 		doc.Raw, opts, err = callback(copySlice(doc.Raw))
+		doc.IsJSON = doc.Raw != nil && ((opts & Raw) == 0)
 		if err != nil {
 			return err
 		} else if seq = bucket.updateDoc(k, &doc); seq > 0 {
@@ -380,7 +380,6 @@ func (bucket *lolrus) updateDoc(k string, doc *lolrusDoc) uint64 {
 		return 0
 	}
 	doc.Sequence = bucket._nextSequence()
-	doc.IsJSON = (doc.Raw != nil) // Doc is assumed to be JSON, unless deleted. (Used by Update)
 	bucket.Docs[k] = doc
 	bucket._postTapMutationEvent(k, doc.Raw)
 	return doc.Sequence
