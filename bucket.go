@@ -35,6 +35,7 @@ type Bucket interface {
 	ViewCustom(ddoc, name string, params map[string]interface{}, vres interface{}) error
 	StartTapFeed(args TapArguments) (TapFeed, error)
 	Close()
+	Dump()
 }
 
 // A set of option flags for the Write method.

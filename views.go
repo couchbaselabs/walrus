@@ -284,3 +284,30 @@ func (result *ViewResult) Swap(i, j int) {
 func (result *ViewResult) Less(i, j int) bool {
 	return result.collator.Collate(result.Rows[i].Key, result.Rows[j].Key) < 0
 }
+
+//////// DUMP:
+
+func (bucket *lolrus) _sortedKeys() []string {
+	keys := make([]string, 0, len(bucket.Docs))
+	for key, _ := range bucket.Docs {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func (bucket *lolrus) Dump() {
+	bucket.lock.RLock()
+	defer bucket.lock.RUnlock()
+	fmt.Printf("==== Walrus bucket %q\n", bucket.name)
+	for _, key := range bucket._sortedKeys() {
+		doc := bucket.Docs[key]
+		fmt.Printf("   %q = ", key)
+		if doc.IsJSON {
+			fmt.Println(string(doc.Raw))
+		} else {
+			fmt.Printf("<%d bytes>\n", len(doc.Raw))
+		}
+	}
+	fmt.Printf("==== End bucket %q\n", bucket.name)
+}
