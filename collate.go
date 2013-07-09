@@ -25,7 +25,7 @@ type JSONCollator struct {
 func defaultLocale() locale.ID {
 	l, e := locale.Parse("icu")
 	if e != nil {
-		panic(e)
+		return locale.Und
 	}
 	return l
 }
