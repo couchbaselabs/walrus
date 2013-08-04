@@ -10,6 +10,7 @@
 package walrus
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"code.google.com/p/go.exp/locale/collate"
@@ -96,7 +97,7 @@ func collationType(value interface{}) int {
 			return 1
 		}
 		return 2
-	case float64, uint64:
+	case float64, uint64, json.Number:
 		return 3
 	case string:
 		return 4
@@ -105,7 +106,7 @@ func collationType(value interface{}) int {
 	case map[string]interface{}:
 		return 6
 	}
-	panic(fmt.Sprintf("collationType doesn't understand %+v", value))
+	panic(fmt.Sprintf("collationType doesn't understand %+v (%T)", value, value))
 	return -1
 }
 
@@ -115,6 +116,13 @@ func collationToFloat64(value interface{}) float64 {
 	}
 	if n, ok := value.(float64); ok {
 		return n
+	}
+	if n, ok := value.(json.Number); ok {
+		rv, err := n.Float64()
+		if err != nil {
+			panic(err)
+		}
+		return rv
 	}
 	panic(fmt.Sprintf("collationToFloat64 doesn't understand %+v", value))
 }
