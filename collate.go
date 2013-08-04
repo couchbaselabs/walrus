@@ -107,7 +107,6 @@ func collationType(value interface{}) int {
 		return 6
 	}
 	panic(fmt.Sprintf("collationType doesn't understand %+v (%T)", value, value))
-	return -1
 }
 
 func collationToFloat64(value interface{}) float64 {
