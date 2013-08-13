@@ -46,30 +46,16 @@ func (c *JSONCollator) Collate(key1, key2 interface{}) int {
 	type1 := collationType(key1)
 	type2 := collationType(key2)
 	if type1 != type2 {
-		return type1 - type2
+		return compareTokens(type1, type2)
 	}
 	switch type1 {
-	case 0, 1, 2:
+	case kNull, kFalse, kTrue:
 		return 0
-	case 3:
-		n1 := collationToFloat64(key1)
-		n2 := collationToFloat64(key2)
-		if n1 < n2 {
-			return -1
-		} else if n1 > n2 {
-			return 1
-		}
-		return 0
-	case 4:
-		s1 := key1.(string)
-		s2 := key2.(string)
-		stringCollator := c.stringCollator
-		if stringCollator == nil {
-			stringCollator = collate.New(defaultLocale())
-			c.stringCollator = stringCollator
-		}
-		return stringCollator.CompareString(s1, s2)
-	case 5:
+	case kNumber:
+		return compareFloats(collationToFloat64(key1), collationToFloat64(key2))
+	case kString:
+		return c.compareStrings(key1.(string), key2.(string))
+	case kArray:
 		array1 := key1.([]interface{})
 		array2 := key2.([]interface{})
 		for i, item1 := range array1 {
@@ -80,33 +66,42 @@ func (c *JSONCollator) Collate(key1, key2 interface{}) int {
 				return cmp
 			}
 		}
-		return len(array1) - len(array2)
-	case 6:
+		return compareInts(len(array1), len(array2))
+	case kObject:
 		return 0 // ignore ordering for catch-all stuff
 	}
 	panic("bogus collationType")
 }
 
-func collationType(value interface{}) int {
+func collationType(value interface{}) token {
 	if value == nil {
-		return 0
+		return kNull
 	}
 	switch value := value.(type) {
 	case bool:
 		if !value {
-			return 1
+			return kFalse
 		}
-		return 2
+		return kTrue
 	case float64, uint64, json.Number:
-		return 3
+		return kNumber
 	case string:
-		return 4
+		return kString
 	case []interface{}:
-		return 5
+		return kArray
 	case map[string]interface{}:
-		return 6
+		return kObject
 	}
 	panic(fmt.Sprintf("collationType doesn't understand %+v (%T)", value, value))
+}
+
+func (c *JSONCollator) compareStrings(s1, s2 string) int {
+	stringCollator := c.stringCollator
+	if stringCollator == nil {
+		stringCollator = collate.New(defaultLocale())
+		c.stringCollator = stringCollator
+	}
+	return stringCollator.CompareString(s1, s2)
 }
 
 func collationToFloat64(value interface{}) float64 {
@@ -124,4 +119,22 @@ func collationToFloat64(value interface{}) float64 {
 		return rv
 	}
 	panic(fmt.Sprintf("collationToFloat64 doesn't understand %+v", value))
+}
+
+func compareInts(n1, n2 int) int {
+	if n1 < n2 {
+		return -1
+	} else if n1 > n2 {
+		return 1
+	}
+	return 0
+}
+
+func compareFloats(n1, n2 float64) int {
+	if n1 < n2 {
+		return -1
+	} else if n1 > n2 {
+		return 1
+	}
+	return 0
 }
