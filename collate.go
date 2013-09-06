@@ -13,8 +13,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"code.google.com/p/go.exp/locale/collate"
-	"code.google.com/p/go.text/locale"
+	"code.google.com/p/go.text/collate"
+	"code.google.com/p/go.text/language"
 )
 
 // Context for JSON collation. This struct is not thread-safe (or rather, its embedded string
@@ -23,10 +23,10 @@ type JSONCollator struct {
 	stringCollator *collate.Collator
 }
 
-func defaultLocale() locale.ID {
-	l, e := locale.Parse("icu")
+func defaultLocale() language.Tag {
+	l, e := language.Parse("icu")
 	if e != nil {
-		return locale.Und
+		return language.Und
 	}
 	return l
 }
