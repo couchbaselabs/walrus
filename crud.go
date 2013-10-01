@@ -212,7 +212,7 @@ func (bucket *lolrus) Get(k string, rv interface{}) error {
 
 //////// WRITE:
 
-func (bucket *lolrus) Write(k string, exp int, v interface{}, opt WriteOptions) (err error) {
+func (bucket *lolrus) Write(k string, flags int, exp int, v interface{}, opt WriteOptions) (err error) {
 	// Marshal JSON if the value is not raw:
 	isJSON := (opt&Raw == 0)
 	var data []byte
@@ -293,7 +293,7 @@ func (bucket *lolrus) write(k string, exp int, raw []byte, opt WriteOptions) (se
 //////// ADD / SET / DELETE:
 
 func (bucket *lolrus) add(k string, exp int, v interface{}, opt WriteOptions) (added bool, err error) {
-	err = bucket.Write(k, exp, v, opt|AddOnly)
+	err = bucket.Write(k, 0, exp, v, opt|AddOnly)
 	if err == ErrKeyExists {
 		return false, nil
 	}
@@ -315,15 +315,15 @@ func (bucket *lolrus) SetRaw(k string, exp int, v []byte) error {
 	if v == nil {
 		panic("nil value")
 	}
-	return bucket.Write(k, exp, v, Raw)
+	return bucket.Write(k, 0, exp, v, Raw)
 }
 
 func (bucket *lolrus) Set(k string, exp int, v interface{}) error {
-	return bucket.Write(k, exp, v, 0)
+	return bucket.Write(k, 0, exp, v, 0)
 }
 
 func (bucket *lolrus) Delete(k string) error {
-	return bucket.Write(k, 0, nil, Raw)
+	return bucket.Write(k, 0, 0, nil, Raw)
 }
 
 //////// UPDATE:

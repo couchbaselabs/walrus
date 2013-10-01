@@ -28,7 +28,7 @@ type TapEvent struct {
 // Remember to call Close() on it when you're done, unless its channel has closed itself already.
 type TapFeed interface {
 	Events() <-chan TapEvent
-	Close()
+	Close() error
 }
 
 // Parameters for requesting a TAP feed. Call DefaultTapArguments to get a default one.
@@ -83,7 +83,7 @@ func (feed *tapFeedImpl) Events() <-chan TapEvent {
 }
 
 // Closes a TapFeed. Call this if you stop using a TapFeed before its channel ends.
-func (feed *tapFeedImpl) Close() {
+func (feed *tapFeedImpl) Close() error {
 	feed.bucket.lock.Lock()
 	defer feed.bucket.lock.Unlock()
 
@@ -94,6 +94,7 @@ func (feed *tapFeedImpl) Close() {
 	}
 	close(feed.channel)
 	feed.bucket = nil
+	return nil
 }
 
 func (bucket *lolrus) backfill(feed *tapFeedImpl) {

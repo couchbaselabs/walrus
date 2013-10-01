@@ -96,7 +96,7 @@ func TestWriteWithPersist(t *testing.T) {
 	bucket, err := GetBucket("walrus:/tmp", "pool", "buckit")
 	assertNoError(t, err, "NewPersistentBucket failed")
 
-	assertNoError(t, bucket.Write("key1", 0, []byte("value1"), Raw|Persist), "Write failed")
+	assertNoError(t, bucket.Write("key1", 0, 0, []byte("value1"), Raw|Persist), "Write failed")
 
 	// Load the file into a new bucket to make sure the value got saved to disk:
 	bucket2, err := load(bucket.(*lolrus).path)

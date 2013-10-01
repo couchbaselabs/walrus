@@ -26,7 +26,7 @@ type Bucket interface {
 	Set(k string, exp int, v interface{}) error
 	SetRaw(k string, exp int, v []byte) error
 	Delete(k string) error
-	Write(k string, exp int, v interface{}, opt WriteOptions) error
+	Write(k string, flags int, exp int, v interface{}, opt WriteOptions) error
 	Update(k string, exp int, callback UpdateFunc) error
 	WriteUpdate(k string, exp int, callback WriteUpdateFunc) error
 	Incr(k string, amt, def uint64, exp int) (uint64, error)
