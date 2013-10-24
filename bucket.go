@@ -56,7 +56,7 @@ type ViewResult struct {
 	collator  JSONCollator
 }
 
-type ViewRows []ViewRow
+type ViewRows []*ViewRow
 
 // A single result row from a view query.
 type ViewRow struct {

@@ -106,11 +106,11 @@ func TestView(t *testing.T) {
 	result, err := bucket.View("docname", "view1", options)
 	assertNoError(t, err, "View call failed")
 	assert.Equals(t, result.TotalRows, 5)
-	assert.DeepEquals(t, result.Rows[0], ViewRow{ID: "doc3", Key: 17.0, Value: []interface{}{"v3"}})
-	assert.DeepEquals(t, result.Rows[1], ViewRow{ID: "doc1", Key: "k1", Value: "v1"})
-	assert.DeepEquals(t, result.Rows[2], ViewRow{ID: "doc2", Key: "k2", Value: "v2"})
-	assert.DeepEquals(t, result.Rows[3], ViewRow{ID: "doc4", Key: []interface{}{17.0, false}})
-	assert.DeepEquals(t, result.Rows[4], ViewRow{ID: "doc5", Key: []interface{}{17.0, true}})
+	assert.DeepEquals(t, result.Rows[0], &ViewRow{ID: "doc3", Key: 17.0, Value: []interface{}{"v3"}})
+	assert.DeepEquals(t, result.Rows[1], &ViewRow{ID: "doc1", Key: "k1", Value: "v1"})
+	assert.DeepEquals(t, result.Rows[2], &ViewRow{ID: "doc2", Key: "k2", Value: "v2"})
+	assert.DeepEquals(t, result.Rows[3], &ViewRow{ID: "doc4", Key: []interface{}{17.0, false}})
+	assert.DeepEquals(t, result.Rows[4], &ViewRow{ID: "doc5", Key: []interface{}{17.0, true}})
 
 	// Try a startkey:
 	options["startkey"] = "k2"
@@ -119,7 +119,7 @@ func TestView(t *testing.T) {
 	assertNoError(t, err, "View call failed")
 	assert.Equals(t, result.TotalRows, 3)
 	var expectedDoc interface{} = map[string]interface{}{"key": "k2", "value": "v2"}
-	assert.DeepEquals(t, result.Rows[0], ViewRow{ID: "doc2", Key: "k2", Value: "v2",
+	assert.DeepEquals(t, result.Rows[0], &ViewRow{ID: "doc2", Key: "k2", Value: "v2",
 		Doc: &expectedDoc})
 
 	// Try an endkey:
@@ -127,7 +127,7 @@ func TestView(t *testing.T) {
 	result, err = bucket.View("docname", "view1", options)
 	assertNoError(t, err, "View call failed")
 	assert.Equals(t, result.TotalRows, 1)
-	assert.DeepEquals(t, result.Rows[0], ViewRow{ID: "doc2", Key: "k2", Value: "v2",
+	assert.DeepEquals(t, result.Rows[0], &ViewRow{ID: "doc2", Key: "k2", Value: "v2",
 		Doc: &expectedDoc})
 
 	// Try an endkey out of range:
@@ -135,7 +135,7 @@ func TestView(t *testing.T) {
 	result, err = bucket.View("docname", "view1", options)
 	assertNoError(t, err, "View call failed")
 	assert.Equals(t, result.TotalRows, 1)
-	assert.DeepEquals(t, result.Rows[0], ViewRow{ID: "doc2", Key: "k2", Value: "v2",
+	assert.DeepEquals(t, result.Rows[0], &ViewRow{ID: "doc2", Key: "k2", Value: "v2",
 		Doc: &expectedDoc})
 
 	// Try without inclusive_end:
@@ -150,7 +150,7 @@ func TestView(t *testing.T) {
 	result, err = bucket.View("docname", "view1", options)
 	assertNoError(t, err, "View call failed")
 	assert.Equals(t, result.TotalRows, 1)
-	assert.DeepEquals(t, result.Rows[0], ViewRow{ID: "doc2", Key: "k2", Value: "v2",
+	assert.DeepEquals(t, result.Rows[0], &ViewRow{ID: "doc2", Key: "k2", Value: "v2",
 		Doc: &expectedDoc})
 }
 

@@ -136,12 +136,22 @@ func (bucket *lolrus) updateView(view *lolrusView, toSequence uint64) ViewResult
 	if view.lastIndexedSequence >= toSequence {
 		return view.index
 	}
+	ohai("\t... updating index to seq %d (from %d)", toSequence, view.lastIndexedSequence)
 
-	//OPT: Should index incrementally by re-mapping rows of docs whose sequence > lastIndexedSequence
 	var result ViewResult
-	result.Rows = make([]ViewRow, 0, len(bucket.Docs))
+	result.Rows = make([]*ViewRow, 0, len(bucket.Docs))
 	result.Errors = make([]ViewError, 0)
+
+	updatedKeysSize := toSequence - view.lastIndexedSequence
+	if updatedKeysSize > 1000 {
+		updatedKeysSize = 1000
+	}
+	updatedKeys := make(map[string]struct{}, updatedKeysSize)
+
 	for docid, doc := range bucket.Docs {
+		if doc.Sequence <= view.lastIndexedSequence {
+			continue // doc has not changed
+		}
 		raw := doc.Raw
 		if raw == nil {
 			continue
@@ -155,7 +165,21 @@ func (bucket *lolrus) updateView(view *lolrusView, toSequence uint64) ViewResult
 		} else {
 			result.Rows = append(result.Rows, rows...)
 		}
+		updatedKeys[docid] = struct{}{}
 	}
+
+	// Copy existing view rows emitted by unchanged docs:
+	for _, row := range view.index.Rows {
+		if _, found := updatedKeys[row.ID]; !found {
+			result.Rows = append(result.Rows, row)
+		}
+	}
+	for _, err := range view.index.Errors {
+		if _, found := updatedKeys[err.From]; !found {
+			result.Errors = append(result.Errors, err)
+		}
+	}
+
 	sort.Sort(&result)
 	result.collator.Clear() // don't keep collation state around
 
@@ -261,7 +285,7 @@ func ProcessViewResult(result ViewResult, params map[string]interface{},
 func ReduceViewResult(reduceFunction string, result *ViewResult) error {
 	switch reduceFunction {
 	case "_count":
-		result.Rows = []ViewRow{{Value: float64(len(result.Rows))}}
+		result.Rows = []*ViewRow{{Value: float64(len(result.Rows))}}
 		return nil
 	default:
 		// TODO: Implement other reduce functions!

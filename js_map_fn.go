@@ -21,7 +21,7 @@ const kTaskCacheSize = 4
 // Based on JSRunner, so this is not thread-safe; use its wrapper JSMapFunction for that.
 type jsMapTask struct {
 	JSRunner
-	output []ViewRow
+	output []*ViewRow
 }
 
 // Compiles a JavaScript map function to a jsMapTask object.
@@ -39,12 +39,12 @@ func newJsMapTask(funcSource string) (JSServerTask, error) {
 		if err1 != nil || err2 != nil {
 			panic(fmt.Sprintf("Unsupported key or value types: emit(%#v,%#v): %v %v", key, value, err1, err2))
 		}
-		mapper.output = append(mapper.output, ViewRow{Key: key, Value: value})
+		mapper.output = append(mapper.output, &ViewRow{Key: key, Value: value})
 		return otto.UndefinedValue()
 	})
 
 	mapper.Before = func() {
-		mapper.output = []ViewRow{}
+		mapper.output = []*ViewRow{}
 	}
 	mapper.After = func(result otto.Value, err error) (interface{}, error) {
 		output := mapper.output
@@ -72,12 +72,12 @@ func NewJSMapFunction(fnSource string) *JSMapFunction {
 }
 
 // Calls a jsMapTask.
-func (mapper *JSMapFunction) CallFunction(doc string, docid string) ([]ViewRow, error) {
+func (mapper *JSMapFunction) CallFunction(doc string, docid string) ([]*ViewRow, error) {
 	result1, err := mapper.Call(JSONString(doc), MakeMeta(docid))
 	if err != nil {
 		return nil, err
 	}
-	rows := result1.([]ViewRow)
+	rows := result1.([]*ViewRow)
 	for i, _ := range rows {
 		rows[i].ID = docid
 	}
