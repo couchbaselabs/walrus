@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"sync"
 )
 
 // A single view stored in a lolrus.
@@ -148,25 +149,54 @@ func (bucket *lolrus) updateView(view *lolrusView, toSequence uint64) ViewResult
 	}
 	updatedKeys := make(map[string]struct{}, updatedKeysSize)
 
-	for docid, doc := range bucket.Docs {
-		if doc.Sequence <= view.lastIndexedSequence {
-			continue // doc has not changed
-		}
-		raw := doc.Raw
-		if raw == nil {
-			continue
-		}
-		if !doc.IsJSON {
-			raw = []byte(`{}`) // Ignore contents of non-JSON (raw) docs
-		}
-		rows, err := view.mapFunction.CallFunction(string(raw), docid)
+	// Build a parallel task to map docs:
+	mapFunction := view.mapFunction
+	mapper := func(rawInput interface{}, output chan<- interface{}) {
+		input := rawInput.([2]string)
+		docid := input[0]
+		raw := input[1]
+		rows, err := mapFunction.CallFunction(string(raw), docid)
 		if err != nil {
-			result.Errors = append(result.Errors, ViewError{docid, err.Error()})
+			output <- ViewError{docid, err.Error()}
 		} else {
-			result.Rows = append(result.Rows, rows...)
+			output <- rows
 		}
-		updatedKeys[docid] = struct{}{}
 	}
+	mapInput := make(chan interface{})
+	mapOutput := Parallelize(mapper, 0, mapInput)
+
+	// Start another task to read the map output and store it into result.Rows/Errors:
+	var waiter sync.WaitGroup
+	waiter.Add(1)
+	go func() {
+		defer waiter.Done()
+		for item := range mapOutput {
+			switch item := item.(type) {
+			case ViewError:
+				result.Errors = append(result.Errors, item)
+			case []*ViewRow:
+				result.Rows = append(result.Rows, item...)
+			}
+		}
+	}()
+
+	// Now shovel all the changed document bodies into the mapper:
+	for docid, doc := range bucket.Docs {
+		if doc.Sequence > view.lastIndexedSequence {
+			raw := doc.Raw
+			if raw != nil {
+				if !doc.IsJSON {
+					raw = []byte(`{}`) // Ignore contents of non-JSON (raw) docs
+				}
+				mapInput <- [2]string{docid, string(raw)}
+				updatedKeys[docid] = struct{}{}
+			}
+		}
+	}
+	close(mapInput)
+
+	// Wait for the result processing to finish:
+	waiter.Wait()
 
 	// Copy existing view rows emitted by unchanged docs:
 	for _, row := range view.index.Rows {
