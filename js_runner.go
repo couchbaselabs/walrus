@@ -10,6 +10,7 @@
 package walrus
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -102,16 +103,15 @@ func (runner *JSRunner) DefineNativeFunction(name string, function NativeFunctio
 	runner.js.Set(name, (func(otto.FunctionCall) otto.Value)(function))
 }
 
-func (runner *JSRunner) jsonToValue(json string) (interface{}, error) {
-	if json == "" {
+func (runner *JSRunner) jsonToValue(jsonStr string) (interface{}, error) {
+	if jsonStr == "" {
 		return otto.NullValue(), nil
 	}
-
-	value, err := runner.js.Object("x = " + json)
-	if err != nil {
-		err = fmt.Errorf("Unparseable input %q: %s", json, err)
+	var parsed interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &parsed); err != nil {
+		return nil, fmt.Errorf("Unparseable JSRunner input: %s", jsonStr)
 	}
-	return value, err
+	return parsed, nil
 }
 
 // Invokes the JS function with JSON inputs.
@@ -153,12 +153,12 @@ func (runner *JSRunner) Call(inputs ...interface{}) (interface{}, error) {
 	} else {
 		inputJS := make([]interface{}, len(inputs))
 		for i, input := range inputs {
-			switch input := input.(type) {
-			case JSONString:
-				inputJS[i], err = runner.jsonToValue(string(input))
-			default:
-				inputJS[i], err = runner.js.ToValue(input)
+			if jsonStr, ok := input.(JSONString); ok {
+				if input,err = runner.jsonToValue(string(jsonStr)); err != nil {
+					return nil, err
+				}
 			}
+			inputJS[i], err = runner.js.ToValue(input)
 			if err != nil {
 				return nil, fmt.Errorf("Couldn't convert %#v to JS: %s", input, err)
 			}

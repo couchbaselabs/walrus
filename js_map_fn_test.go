@@ -10,6 +10,7 @@
 package walrus
 
 import (
+	"fmt"
 	"github.com/couchbaselabs/go.assert"
 	"testing"
 )
@@ -27,7 +28,7 @@ func TestEmitFunction(t *testing.T) {
 func testMap(t *testing.T, mapFn string, doc string) []*ViewRow {
 	mapper := NewJSMapFunction(mapFn)
 	rows, err := mapper.CallFunction(doc, "doc1")
-	assertNoError(t, err, "CallFunction failed")
+	assertNoError(t, err, fmt.Sprintf("CallFunction failed on %s", doc))
 	return rows
 }
 
@@ -42,13 +43,13 @@ func TestInputParse(t *testing.T) {
 // Test different types of keys/values:
 func TestKeyTypes(t *testing.T) {
 	rows := testMap(t, `function(doc) {emit(doc.key, doc.value);}`,
-		`{ID: "doc1", "key": true, "value": false}`)
+		`{"ID": "doc1", "key": true, "value": false}`)
 	assert.DeepEquals(t, rows[0], &ViewRow{ID: "doc1", Key: true, Value: false})
 	rows = testMap(t, `function(doc) {emit(doc.key, doc.value);}`,
-		`{ID: "doc1", "key": null, "value": 0}`)
+		`{"ID": "doc1", "key": null, "value": 0}`)
 	assert.DeepEquals(t, rows[0], &ViewRow{ID: "doc1", Key: nil, Value: float64(0)})
 	rows = testMap(t, `function(doc) {emit(doc.key, doc.value);}`,
-		`{ID: "doc1", "key": ["foo", 23, []], "value": [null]}`)
+		`{"ID": "doc1", "key": ["foo", 23, []], "value": [null]}`)
 	assert.DeepEquals(t, rows[0],
 		&ViewRow{
 			ID:    "doc1",
