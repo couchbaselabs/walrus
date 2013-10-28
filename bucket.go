@@ -23,6 +23,7 @@ type Bucket interface {
 	GetRaw(k string) ([]byte, error)
 	Add(k string, exp int, v interface{}) (added bool, err error)
 	AddRaw(k string, exp int, v []byte) (added bool, err error)
+	Append(k string, data []byte) error
 	Set(k string, exp int, v interface{}) error
 	SetRaw(k string, exp int, v []byte) error
 	Delete(k string) error
@@ -46,6 +47,7 @@ const (
 	AddOnly                             // Fail with ErrKeyExists if key already has a value
 	Persist                             // After write, wait until it's written to disk
 	Indexable                           // After write, wait until it's ready for views to index
+	Append                              // Appends to value instead of replacing it
 )
 
 // Result of a view query.

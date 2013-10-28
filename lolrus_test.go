@@ -84,6 +84,22 @@ func TestIncrAtomic(t *testing.T) {
 	assert.Equals(t, int(value), numIncrements*(numIncrements+1)/2)
 }
 
+func TestAppend(t *testing.T) {
+	bucket := NewBucket("buckit")
+	defer bucket.Close()
+
+	err := bucket.Append("key", []byte(" World"))
+	assert.DeepEquals(t, err, MissingError{"key"})
+
+	err = bucket.SetRaw("key", 0, []byte("Hello"))
+	assertNoError(t, err, "SetRaw")
+	err = bucket.Append("key", []byte(" World"))
+	assertNoError(t, err, "Append")
+	value, err := bucket.GetRaw("key")
+	assertNoError(t, err, "GetRaw")
+	assert.DeepEquals(t, value, []byte("Hello World"))
+}
+
 // Create a simple view and run it on some documents
 func TestView(t *testing.T) {
 	ddoc := DesignDoc{Views: ViewMap{"view1": ViewDef{Map: `function(doc){if (doc.key) emit(doc.key,doc.value)}`}}}

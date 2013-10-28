@@ -264,20 +264,25 @@ func (bucket *lolrus) write(k string, exp int, raw []byte, opt WriteOptions) (se
 	doc := bucket.Docs[k]
 	if doc == nil {
 		bucket.assertNotClosed()
-		if raw == nil {
+		if raw == nil || opt&Append != 0 {
 			return 0, bucket.missingError(k)
 		}
 		doc = &lolrusDoc{}
 		bucket.Docs[k] = doc
-	} else {
-		if doc.Raw == nil && raw == nil {
+	} else if doc.Raw == nil {
+		if raw == nil || opt&Append != 0 {
 			return 0, bucket.missingError(k)
-		} else if doc.Raw != nil && opt&AddOnly != 0 {
+		}
+	} else {
+		if opt&AddOnly != 0 {
 			return 0, ErrKeyExists
+		}
+		if opt&Append != 0 {
+			raw = append(doc.Raw, raw...)
 		}
 	}
 	doc.Raw = raw
-	doc.IsJSON = (opt&Raw == 0)
+	doc.IsJSON = (opt&(Raw|Append) == 0)
 	doc.Sequence = bucket._nextSequence()
 
 	// Post a TAP notification:
@@ -324,6 +329,13 @@ func (bucket *lolrus) Set(k string, exp int, v interface{}) error {
 
 func (bucket *lolrus) Delete(k string) error {
 	return bucket.Write(k, 0, 0, nil, Raw)
+}
+
+func (bucket *lolrus) Append(k string, data []byte) error {
+	if data == nil {
+		panic("nil value")
+	}
+	return bucket.Write(k, 0, 0, data, Append|Raw)
 }
 
 //////// UPDATE:
