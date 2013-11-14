@@ -416,18 +416,23 @@ func (bucket *lolrus) Incr(k string, amt, def uint64, exp int) (uint64, error) {
 		if err != nil {
 			return 0, err
 		}
+		if amt == 0 {
+			return counter, nil // just reading existing value
+		}
+		counter += amt
 	} else {
 		bucket.assertNotClosed()
-	}
-	if amt != 0 {
-		counter += amt
-		doc = &lolrusDoc{
-			Raw:      []byte(strconv.FormatUint(counter, 10)),
-			IsJSON:   false,
-			Sequence: bucket._nextSequence(),
+		if exp < 0 {
+			return 0, MissingError{k}
 		}
-		bucket.Docs[k] = doc
-		bucket._postTapMutationEvent(k, doc.Raw)
+		counter = def
 	}
+	doc = &lolrusDoc{
+		Raw:      []byte(strconv.FormatUint(counter, 10)),
+		IsJSON:   false,
+		Sequence: bucket._nextSequence(),
+	}
+	bucket.Docs[k] = doc
+	bucket._postTapMutationEvent(k, doc.Raw)
 	return counter, nil
 }

@@ -48,19 +48,22 @@ func TestIncr(t *testing.T) {
 	defer bucket.Close()
 	count, err := bucket.Incr("count1", 1, 100, 0)
 	assertNoError(t, err, "Incr")
-	assert.Equals(t, count, uint64(101))
+	assert.Equals(t, count, uint64(100))
 
 	count, err = bucket.Incr("count1", 0, 0, 0)
 	assertNoError(t, err, "Incr")
-	assert.Equals(t, count, uint64(101))
+	assert.Equals(t, count, uint64(100))
 
 	count, err = bucket.Incr("count1", 10, 100, 0)
 	assertNoError(t, err, "Incr")
-	assert.Equals(t, count, uint64(111))
+	assert.Equals(t, count, uint64(110))
 
 	count, err = bucket.Incr("count1", 0, 0, 0)
 	assertNoError(t, err, "Incr")
-	assert.Equals(t, count, uint64(111))
+	assert.Equals(t, count, uint64(110))
+
+	count, err = bucket.Incr("count2", 0, 0, -1)
+	assertTrue(t, err != nil, "Expected error from Incr")
 }
 
 // Spawns 1000 goroutines that 'simultaneously' use Incr to increment the same counter by 1.
@@ -73,7 +76,7 @@ func TestIncrAtomic(t *testing.T) {
 	for i := uint64(1); i <= uint64(numIncrements); i++ {
 		numToAdd := i // lock down the value for the goroutine
 		go func() {
-			_, err := bucket.Incr("key", numToAdd, 0, 0)
+			_, err := bucket.Incr("key", numToAdd, numToAdd, 0)
 			assertNoError(t, err, "Incr")
 			waiters.Add(-1)
 		}()
