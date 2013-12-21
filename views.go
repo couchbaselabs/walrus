@@ -250,7 +250,13 @@ func ProcessViewResult(result ViewResult, params map[string]interface{},
 	}
 
 	startkey := params["startkey"]
+	if startkey == nil {
+		startkey = params["start_key"] // older synonym
+	}
 	endkey := params["endkey"]
+	if endkey == nil {
+		endkey = params["end_key"]
+	}
 	inclusiveEnd := true
 	if key := params["key"]; key != nil {
 		startkey = key
