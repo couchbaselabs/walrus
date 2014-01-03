@@ -22,6 +22,7 @@ type TapEvent struct {
 	Flags      uint32    // Item flags
 	Expiry     uint32    // Item expiration time
 	Key, Value []byte    // Item key/value
+	Sequence   uint64    // Sequence identifier of document
 }
 
 // A Tap feed. Events from the bucket can be read from the channel returned by Events().
@@ -113,9 +114,10 @@ func (bucket *lolrus) copyBackfillEvents(startSequence uint64) []TapEvent {
 	for docid, doc := range bucket.Docs {
 		if doc.Raw != nil && doc.Sequence >= startSequence {
 			events = append(events, TapEvent{
-				Opcode: TapMutation,
-				Key:    []byte(docid),
-				Value:  doc.Raw,
+				Opcode:   TapMutation,
+				Key:      []byte(docid),
+				Value:    doc.Raw,
+				Sequence: doc.Sequence,
 			})
 		}
 	}
@@ -137,17 +139,19 @@ func (bucket *lolrus) _postTapEvent(event TapEvent) {
 	}
 }
 
-func (bucket *lolrus) _postTapMutationEvent(key string, value []byte) {
+func (bucket *lolrus) _postTapMutationEvent(key string, value []byte, seq uint64) {
 	bucket._postTapEvent(TapEvent{
-		Opcode: TapMutation,
-		Key:    []byte(key),
-		Value:  copySlice(value),
+		Opcode:   TapMutation,
+		Key:      []byte(key),
+		Value:    copySlice(value),
+		Sequence: seq,
 	})
 }
 
-func (bucket *lolrus) _postTapDeletionEvent(key string) {
+func (bucket *lolrus) _postTapDeletionEvent(key string, seq uint64) {
 	bucket._postTapEvent(TapEvent{
-		Opcode: TapDeletion,
-		Key:    []byte(key),
+		Opcode:   TapDeletion,
+		Key:      []byte(key),
+		Sequence: seq,
 	})
 }

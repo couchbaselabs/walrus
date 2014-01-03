@@ -287,9 +287,9 @@ func (bucket *lolrus) write(k string, exp int, raw []byte, opt WriteOptions) (se
 
 	// Post a TAP notification:
 	if raw != nil {
-		bucket._postTapMutationEvent(k, raw)
+		bucket._postTapMutationEvent(k, raw, doc.Sequence)
 	} else {
-		bucket._postTapDeletionEvent(k)
+		bucket._postTapDeletionEvent(k, doc.Sequence)
 	}
 
 	return doc.Sequence, nil
@@ -393,7 +393,7 @@ func (bucket *lolrus) updateDoc(k string, doc *lolrusDoc) uint64 {
 	}
 	doc.Sequence = bucket._nextSequence()
 	bucket.Docs[k] = doc
-	bucket._postTapMutationEvent(k, doc.Raw)
+	bucket._postTapMutationEvent(k, doc.Raw, doc.Sequence)
 	return doc.Sequence
 }
 
@@ -433,6 +433,6 @@ func (bucket *lolrus) Incr(k string, amt, def uint64, exp int) (uint64, error) {
 		Sequence: bucket._nextSequence(),
 	}
 	bucket.Docs[k] = doc
-	bucket._postTapMutationEvent(k, doc.Raw)
+	bucket._postTapMutationEvent(k, doc.Raw, doc.Sequence)
 	return counter, nil
 }
