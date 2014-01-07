@@ -46,6 +46,7 @@ type tapFeedImpl struct {
 	bucket  *lolrus
 	channel chan TapEvent
 	args    TapArguments
+	events  *queue
 }
 
 // Starts a TAP feed on a client connection. The events can be read from the returned channel.
@@ -56,25 +57,25 @@ func (bucket *lolrus) StartTapFeed(args TapArguments) (TapFeed, error) {
 		bucket:  bucket,
 		channel: channel,
 		args:    args,
+		events:  newQueue(),
 	}
 
-	go func() {
-		// Send the backfill from a goroutine, to avoid deadlock
-		if args.Backfill != TapNoBackfill {
-			bucket.backfill(feed)
-		}
-		if args.Dump {
-			close(feed.channel)
-		} else {
-			// Now that the backfill (if any) is over, listen for future events:
-			bucket.lock.Lock()
-			defer bucket.lock.Unlock()
+	if args.Backfill != TapNoBackfill {
+		feed.events.push(&TapEvent{Opcode: TapBeginBackfill})
+		bucket.enqueueBackfillEvents(args.Backfill, args.KeysOnly, feed.events)
+		feed.events.push(&TapEvent{Opcode: TapEndBackfill})
+	}
 
-			if feed.bucket != nil {
-				bucket.tapFeeds = append(bucket.tapFeeds, feed)
-			}
-		}
-	}()
+	if args.Dump {
+		feed.events.push(nil) // push an eof
+	} else {
+		// Register the feed with the bucket for future notifications:
+		bucket.lock.Lock()
+		bucket.tapFeeds = append(bucket.tapFeeds, feed)
+		bucket.lock.Unlock()
+	}
+
+	go feed.run()
 
 	return feed, nil
 }
@@ -93,47 +94,51 @@ func (feed *tapFeedImpl) Close() error {
 			feed.bucket.tapFeeds[i] = nil
 		}
 	}
-	close(feed.channel)
+	feed.events.close()
 	feed.bucket = nil
 	return nil
 }
 
-func (bucket *lolrus) backfill(feed *tapFeedImpl) {
-	feed.channel <- TapEvent{Opcode: TapBeginBackfill}
-	for _, event := range bucket.copyBackfillEvents(feed.args.Backfill) {
-		feed.channel <- event
+func (feed *tapFeedImpl) run() {
+	defer close(feed.channel)
+	for {
+		event, _ := feed.events.pull().(*TapEvent)
+		if event == nil {
+			break
+		}
+		feed.channel <- *event
 	}
-	feed.channel <- TapEvent{Opcode: TapEndBackfill}
 }
 
-func (bucket *lolrus) copyBackfillEvents(startSequence uint64) []TapEvent {
+func (bucket *lolrus) enqueueBackfillEvents(startSequence uint64, keysOnly bool, q *queue) {
 	bucket.lock.RLock()
 	defer bucket.lock.RUnlock()
 
-	events := make([]TapEvent, 0, len(bucket.Docs))
 	for docid, doc := range bucket.Docs {
 		if doc.Raw != nil && doc.Sequence >= startSequence {
-			events = append(events, TapEvent{
+			event := TapEvent{
 				Opcode:   TapMutation,
 				Key:      []byte(docid),
-				Value:    doc.Raw,
 				Sequence: doc.Sequence,
-			})
+			}
+			if !keysOnly {
+				event.Value = doc.Raw
+			}
+			q.push(&event)
 		}
 	}
-	return events
 }
 
 // Caller must have the bucket's RLock, because this method iterates bucket.tapFeeds
 func (bucket *lolrus) _postTapEvent(event TapEvent) {
-	eventNoValue := event
+	var eventNoValue TapEvent = event // copies the struct
 	eventNoValue.Value = nil
 	for _, feed := range bucket.tapFeeds {
 		if feed != nil && feed.channel != nil {
 			if feed.args.KeysOnly {
-				feed.channel <- eventNoValue
+				feed.events.push(&eventNoValue)
 			} else {
-				feed.channel <- event
+				feed.events.push(&event)
 			}
 		}
 	}

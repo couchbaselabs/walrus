@@ -46,15 +46,16 @@ func TestMutations(t *testing.T) {
 	assert.True(t, feed != nil)
 	defer feed.Close()
 
+	bucket.Add("delta", 0, "D")
+	bucket.Add("eskimo", 0, "E")
+
 	go func() {
-		bucket.Add("delta", 0, "D")
-		bucket.Add("eskimo", 0, "E")
 		bucket.Add("fahrvergnügen", 0, "F")
 		bucket.Delete("eskimo")
 	}()
 
-	assert.DeepEquals(t, <-feed.Events(), TapEvent{Opcode: TapMutation, Key: []byte("delta"), Value: []byte(`"D"`)})
-	assert.DeepEquals(t, <-feed.Events(), TapEvent{Opcode: TapMutation, Key: []byte("eskimo"), Value: []byte(`"E"`)})
-	assert.DeepEquals(t, <-feed.Events(), TapEvent{Opcode: TapMutation, Key: []byte("fahrvergnügen"), Value: []byte(`"F"`)})
-	assert.DeepEquals(t, <-feed.Events(), TapEvent{Opcode: TapDeletion, Key: []byte("eskimo")})
+	assert.DeepEquals(t, <-feed.Events(), TapEvent{Opcode: TapMutation, Key: []byte("delta"), Value: []byte(`"D"`), Sequence: 4})
+	assert.DeepEquals(t, <-feed.Events(), TapEvent{Opcode: TapMutation, Key: []byte("eskimo"), Value: []byte(`"E"`), Sequence: 5})
+	assert.DeepEquals(t, <-feed.Events(), TapEvent{Opcode: TapMutation, Key: []byte("fahrvergnügen"), Value: []byte(`"F"`), Sequence: 6})
+	assert.DeepEquals(t, <-feed.Events(), TapEvent{Opcode: TapDeletion, Key: []byte("eskimo"), Sequence: 7})
 }
