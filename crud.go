@@ -129,6 +129,10 @@ func bucketURLToDir(urlStr string) (dir string) {
 	return
 }
 
+func (bucket *lolrus) VBHash(docID string) uint32 {
+	return 0
+}
+
 // Generates the next sequence number to assign to a document update. (Use only while locked)
 func (bucket *lolrus) _nextSequence() uint64 {
 	bucket._saveSoon()

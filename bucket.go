@@ -37,6 +37,7 @@ type Bucket interface {
 	StartTapFeed(args TapArguments) (TapFeed, error)
 	Close()
 	Dump()
+	VBHash(docID string) uint32
 }
 
 // A set of option flags for the Write method.
