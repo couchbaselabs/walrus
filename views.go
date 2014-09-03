@@ -19,6 +19,19 @@ type lolrusView struct {
 // Stores view functions for use by a lolrus.
 type lolrusDesignDoc map[string]*lolrusView
 
+func (bucket *lolrus) GetDDoc(docname string, into interface{}) error {
+	bucket.lock.Lock()
+	defer bucket.lock.Unlock()
+
+	design := bucket.DesignDocs[docname]
+	if design == nil {
+		return MissingError{docname}
+	}
+	// Have to roundtrip thru JSON to return it as arbitrary interface{}:
+	raw, _ := json.Marshal(design)
+	return json.Unmarshal(raw, into)
+}
+
 func (bucket *lolrus) PutDDoc(docname string, value interface{}) error {
 	design, err := CheckDDoc(value)
 	if err != nil {
@@ -39,6 +52,18 @@ func (bucket *lolrus) PutDDoc(docname string, value interface{}) error {
 
 	bucket.DesignDocs[docname] = design
 	bucket._saveSoon()
+	return nil
+}
+
+func (bucket *lolrus) DeleteDDoc(docname string) error {
+	bucket.lock.Lock()
+	defer bucket.lock.Unlock()
+
+	if bucket.DesignDocs[docname] == nil {
+		return MissingError{docname}
+	}
+	delete(bucket.DesignDocs, docname)
+	delete(bucket.views, docname)
 	return nil
 }
 

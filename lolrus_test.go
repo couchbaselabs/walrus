@@ -111,6 +111,10 @@ func TestView(t *testing.T) {
 	err := bucket.PutDDoc("docname", ddoc)
 	assertNoError(t, err, "PutDDoc failed")
 
+	var echo DesignDoc
+	err = bucket.GetDDoc("docname", &echo)
+	assert.DeepEquals(t, echo, ddoc)
+
 	setJSON(bucket, "doc1", `{"key": "k1", "value": "v1"}`)
 	setJSON(bucket, "doc2", `{"key": "k2", "value": "v2"}`)
 	setJSON(bucket, "doc3", `{"key": 17, "value": ["v3"]}`)
@@ -171,6 +175,10 @@ func TestView(t *testing.T) {
 	assert.Equals(t, result.TotalRows, 1)
 	assert.DeepEquals(t, result.Rows[0], &ViewRow{ID: "doc2", Key: "k2", Value: "v2",
 		Doc: &expectedDoc})
+
+	// Delete the design doc:
+	assertNoError(t, bucket.DeleteDDoc("docname"), "DeleteDDoc")
+	assert.DeepEquals(t, bucket.GetDDoc("docname", &echo), MissingError{"docname"})
 }
 
 func TestCheckDDoc(t *testing.T) {

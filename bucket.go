@@ -31,7 +31,9 @@ type Bucket interface {
 	Update(k string, exp int, callback UpdateFunc) error
 	WriteUpdate(k string, exp int, callback WriteUpdateFunc) error
 	Incr(k string, amt, def uint64, exp int) (uint64, error)
+	GetDDoc(docname string, into interface{}) error
 	PutDDoc(docname string, value interface{}) error
+	DeleteDDoc(docname string) error
 	View(ddoc, name string, params map[string]interface{}) (ViewResult, error)
 	ViewCustom(ddoc, name string, params map[string]interface{}, vres interface{}) error
 	StartTapFeed(args TapArguments) (TapFeed, error)
