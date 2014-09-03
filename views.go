@@ -113,7 +113,7 @@ func (bucket *lolrus) findView(docName, viewName string, staleOK bool) (view *lo
 		view = ddoc[viewName]
 		if view != nil {
 			upToDate := view.lastIndexedSequence == bucket.LastSeq
-			if !upToDate && staleOK {
+			if !upToDate && view.lastIndexedSequence > 0 && staleOK {
 				go bucket.updateView(view, bucket.LastSeq)
 				upToDate = true
 			}
@@ -182,6 +182,7 @@ func (bucket *lolrus) updateView(view *lolrusView, toSequence uint64) ViewResult
 		raw := input[1]
 		rows, err := mapFunction.CallFunction(string(raw), docid)
 		if err != nil {
+			ohai("Error running map function: %s", err)
 			output <- ViewError{docid, err.Error()}
 		} else {
 			output <- rows

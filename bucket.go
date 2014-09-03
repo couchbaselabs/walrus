@@ -55,9 +55,9 @@ const (
 
 // Result of a view query.
 type ViewResult struct {
-	TotalRows int `json:"total_rows"`
-	Rows      ViewRows
-	Errors    []ViewError
+	TotalRows int         `json:"total_rows"`
+	Rows      ViewRows    `json:"rows"`
+	Errors    []ViewError `json:"errors,omitempty"`
 	collator  JSONCollator
 }
 
@@ -65,10 +65,10 @@ type ViewRows []*ViewRow
 
 // A single result row from a view query.
 type ViewRow struct {
-	ID    string
-	Key   interface{}
-	Value interface{}
-	Doc   *interface{}
+	ID    string       `json:"id"`
+	Key   interface{}  `json:"key"`
+	Value interface{}  `json:"value"`
+	Doc   *interface{} `json:"doc,omitempty"`
 }
 
 // Type of error returned by Bucket API when a document is missing
