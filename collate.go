@@ -13,8 +13,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"code.google.com/p/go.text/collate"
-	"code.google.com/p/go.text/language"
+	"golang.org/x/text/collate"
+	"golang.org/x/text/language"
 )
 
 // Context for JSON collation. This struct is not thread-safe (or rather, its embedded string
