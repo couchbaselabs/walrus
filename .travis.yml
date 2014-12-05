@@ -5,6 +5,7 @@ go:
 
 script:
   - go get github.com/couchbaselabs/go.assert
+  - go get code.google.com/p/go.tools/cmd/vet
   - go test -v ./...
   - go vet ./...
 
