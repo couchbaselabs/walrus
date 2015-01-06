@@ -42,6 +42,11 @@ type Bucket interface {
 	VBHash(docID string) uint32
 }
 
+type DeleteableBucket interface {
+	Bucket
+	CloseAndDelete() error
+}
+
 // A set of option flags for the Write method.
 type WriteOptions int
 

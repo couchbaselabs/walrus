@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -49,7 +50,7 @@ type lolrusDoc struct {
 }
 
 // Creates a simple in-memory Bucket, suitable only for amusement purposes & testing.
-// The Bucket is created empty. There is no way to save it persistently. The name is ignored.
+// The Bucket is created empty. There is no way to save it persistently.
 func NewBucket(bucketName string) Bucket {
 	ohai("NewBucket %s", bucketName)
 	bucket := &lolrus{
@@ -165,6 +166,15 @@ func (bucket *lolrus) Close() {
 		bucket.DesignDocs = nil
 		bucket.views = nil
 	}
+}
+
+func (bucket *lolrus) CloseAndDelete() error {
+	path := bucket.path
+	bucket.Close()
+	if path == "" {
+		return nil
+	}
+	return os.Remove(path)
 }
 
 func (bucket *lolrus) assertNotClosed() {
