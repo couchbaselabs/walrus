@@ -11,9 +11,10 @@ package walrus
 
 import (
 	"encoding/json"
-	"github.com/couchbaselabs/go.assert"
 	"sync"
 	"testing"
+
+	"github.com/couchbaselabs/go.assert"
 )
 
 func setJSON(bucket Bucket, docid string, jsonDoc string) error {
