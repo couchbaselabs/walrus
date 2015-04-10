@@ -63,7 +63,7 @@ type ViewResult struct {
 	TotalRows int         `json:"total_rows"`
 	Rows      ViewRows    `json:"rows"`
 	Errors    []ViewError `json:"errors,omitempty"`
-	collator  JSONCollator
+	Collator  JSONCollator
 }
 
 type ViewRows []*ViewRow

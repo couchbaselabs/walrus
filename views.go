@@ -237,7 +237,7 @@ func (bucket *lolrus) updateView(view *lolrusView, toSequence uint64) ViewResult
 	}
 
 	sort.Sort(&result)
-	result.collator.Clear() // don't keep collation state around
+	result.Collator.Clear() // don't keep collation state around
 
 	view.lastIndexedSequence = bucket.LastSeq
 	view.index = result
@@ -368,7 +368,7 @@ func (result *ViewResult) Swap(i, j int) {
 }
 
 func (result *ViewResult) Less(i, j int) bool {
-	return result.collator.Collate(result.Rows[i].Key, result.Rows[j].Key) < 0
+	return result.Collator.Collate(result.Rows[i].Key, result.Rows[j].Key) < 0
 }
 
 //////// DUMP:
