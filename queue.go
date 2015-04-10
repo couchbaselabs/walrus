@@ -1,5 +1,7 @@
 package walrus
 
+// TODO: use github.com/tleyden/go-safe-dstruct/queue instead of this
+
 import (
 	"container/list"
 	"sync"
