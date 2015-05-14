@@ -1,3 +1,6 @@
+[![Build Status](https://drone.io/github.com/couchbaselabs/walrus/status.png)](https://drone.io/github.com/couchbaselabs/walrus/latest)
+[![GoDoc](https://godoc.org/github.com/couchbaselabs/walrus?status.png)](https://godoc.org/github.com/couchbaselabs/walrus)
+
 # Walrus
 
 <img src="http://www.ihasabucket.com/images/walrus_bucket.jpg">
