@@ -5,7 +5,7 @@
 
 <img src="http://www.ihasabucket.com/images/walrus_bucket.jpg">
 
-**Walrus** is a [Go](http://golang.org) library that provides a tiny implementation of the Bucket API from the [go-couchbase](http://github.com/couchbaselabs/go-couchbase) package.
+**Walrus** is a [Go](http://golang.org) library that provides a tiny implementation of the Bucket API from the [sg-bucket](http://github.com/couchbase/sg-bucket) package.
 
 If you have Go code that talks to a Couchbase Server bucket, you can fairly easily switch it to use an in-process Walrus bucket instead. This is handy for development and testing, since you don't have to run a full Couchbase Server instance, configure buckets, flush them before running tests, etc.
 
