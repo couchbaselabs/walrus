@@ -3,17 +3,20 @@ package walrus
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"reflect"
 	"sort"
 	"sync"
+
+	"github.com/couchbase/sg-bucket"
 )
 
 // A single view stored in a lolrus.
 type lolrusView struct {
-	mapFunction         *JSMapFunction // The compiled map function
-	reduceFunction      string         // The source of the reduce function (if any)
-	index               ViewResult     // The latest complete result
-	lastIndexedSequence uint64         // Bucket's lastSeq at the time the index was built
+	mapFunction         *sgbucket.JSMapFunction // The compiled map function
+	reduceFunction      string                  // The source of the reduce function (if any)
+	index               sgbucket.ViewResult     // The latest complete result
+	lastIndexedSequence uint64                  // Bucket's lastSeq at the time the index was built
 }
 
 // Stores view functions for use by a lolrus.
@@ -25,7 +28,7 @@ func (bucket *lolrus) GetDDoc(docname string, into interface{}) error {
 
 	design := bucket.DesignDocs[docname]
 	if design == nil {
-		return MissingError{docname}
+		return sgbucket.MissingError{docname}
 	}
 	// Have to roundtrip thru JSON to return it as arbitrary interface{}:
 	raw, _ := json.Marshal(design)
@@ -60,7 +63,7 @@ func (bucket *lolrus) DeleteDDoc(docname string) error {
 	defer bucket.lock.Unlock()
 
 	if bucket.DesignDocs[docname] == nil {
-		return MissingError{docname}
+		return sgbucket.MissingError{docname}
 	}
 	delete(bucket.DesignDocs, docname)
 	delete(bucket.views, docname)
@@ -73,7 +76,7 @@ func (bucket *lolrus) _compileDesignDoc(docname string, design *DesignDoc) error
 	}
 	ddoc := lolrusDesignDoc{}
 	for name, fns := range design.Views {
-		jsserver := NewJSMapFunction(fns.Map)
+		jsserver := sgbucket.NewJSMapFunction(fns.Map)
 		view := &lolrusView{
 			mapFunction:    jsserver,
 			reduceFunction: fns.Reduce,
@@ -105,7 +108,7 @@ func CheckDDoc(value interface{}) (*DesignDoc, error) {
 }
 
 // Looks up a lolrusView, and its current index if it's up-to-date enough.
-func (bucket *lolrus) findView(docName, viewName string, staleOK bool) (view *lolrusView, result *ViewResult) {
+func (bucket *lolrus) findView(docName, viewName string, staleOK bool) (view *lolrusView, result *sgbucket.ViewResult) {
 	bucket.lock.RLock()
 	defer bucket.lock.RUnlock()
 
@@ -126,9 +129,9 @@ func (bucket *lolrus) findView(docName, viewName string, staleOK bool) (view *lo
 	return
 }
 
-func (bucket *lolrus) View(docName, viewName string, params map[string]interface{}) (ViewResult, error) {
+func (bucket *lolrus) View(docName, viewName string, params map[string]interface{}) (sgbucket.ViewResult, error) {
 	// Note: This method itself doesn't lock, so it shouldn't access bucket fields directly.
-	ohai("View(%q, %q) ...", docName, viewName)
+	log.Printf("View(%q, %q) ...", docName, viewName)
 
 	stale := true
 	if params != nil {
@@ -138,7 +141,7 @@ func (bucket *lolrus) View(docName, viewName string, params map[string]interface
 	}
 
 	// Look up the view and its index:
-	var result ViewResult
+	var result sgbucket.ViewResult
 	view, resultMaybe := bucket.findView(docName, viewName, stale)
 	if view == nil {
 		return result, bucket.missingError(docName + "/" + viewName)
@@ -148,11 +151,11 @@ func (bucket *lolrus) View(docName, viewName string, params map[string]interface
 		result = bucket.updateView(view, 0)
 	}
 
-	return ProcessViewResult(result, params, bucket, view.reduceFunction)
+	return sgbucket.ProcessViewResult(result, params, bucket, view.reduceFunction)
 }
 
 // Updates the view index if necessary, and returns it.
-func (bucket *lolrus) updateView(view *lolrusView, toSequence uint64) ViewResult {
+func (bucket *lolrus) updateView(view *lolrusView, toSequence uint64) sgbucket.ViewResult {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
@@ -162,11 +165,11 @@ func (bucket *lolrus) updateView(view *lolrusView, toSequence uint64) ViewResult
 	if view.lastIndexedSequence >= toSequence {
 		return view.index
 	}
-	ohai("\t... updating index to seq %d (from %d)", toSequence, view.lastIndexedSequence)
+	log.Printf("\t... updating index to seq %d (from %d)", toSequence, view.lastIndexedSequence)
 
-	var result ViewResult
-	result.Rows = make([]*ViewRow, 0, len(bucket.Docs))
-	result.Errors = make([]ViewError, 0)
+	var result sgbucket.ViewResult
+	result.Rows = make([]*sgbucket.ViewRow, 0, len(bucket.Docs))
+	result.Errors = make([]sgbucket.ViewError, 0)
 
 	updatedKeysSize := toSequence - view.lastIndexedSequence
 	if updatedKeysSize > 1000 {
@@ -182,8 +185,8 @@ func (bucket *lolrus) updateView(view *lolrusView, toSequence uint64) ViewResult
 		raw := input[1]
 		rows, err := mapFunction.CallFunction(string(raw), docid)
 		if err != nil {
-			ohai("Error running map function: %s", err)
-			output <- ViewError{docid, err.Error()}
+			log.Printf("Error running map function: %s", err)
+			output <- sgbucket.ViewError{docid, err.Error()}
 		} else {
 			output <- rows
 		}
@@ -198,9 +201,9 @@ func (bucket *lolrus) updateView(view *lolrusView, toSequence uint64) ViewResult
 		defer waiter.Done()
 		for item := range mapOutput {
 			switch item := item.(type) {
-			case ViewError:
+			case sgbucket.ViewError:
 				result.Errors = append(result.Errors, item)
-			case []*ViewRow:
+			case []*sgbucket.ViewRow:
 				result.Rows = append(result.Rows, item...)
 			}
 		}
@@ -251,124 +254,6 @@ func (bucket *lolrus) ViewCustom(ddoc, name string, params map[string]interface{
 	}
 	marshaled, _ := json.Marshal(result)
 	return json.Unmarshal(marshaled, vres)
-}
-
-// Applies view params (startkey/endkey, limit, etc) against a ViewResult.
-func ProcessViewResult(result ViewResult, params map[string]interface{},
-	bucket Bucket, reduceFunction string) (ViewResult, error) {
-	includeDocs := false
-	limit := 0
-	reverse := false
-	reduce := true
-
-	if params != nil {
-		includeDocs, _ = params["include_docs"].(bool)
-		limit, _ = params["limit"].(int)
-		reverse, _ = params["reverse"].(bool)
-		if reduceParam, found := params["reduce"].(bool); found {
-			reduce = reduceParam
-		}
-	}
-
-	if reverse {
-		//TODO: Apply "reverse" option
-		return result, fmt.Errorf("Reverse is not supported yet, sorry")
-	}
-
-	startkey := params["startkey"]
-	if startkey == nil {
-		startkey = params["start_key"] // older synonym
-	}
-	endkey := params["endkey"]
-	if endkey == nil {
-		endkey = params["end_key"]
-	}
-	inclusiveEnd := true
-	if key := params["key"]; key != nil {
-		startkey = key
-		endkey = key
-	} else {
-		if value, ok := params["inclusive_end"].(bool); ok {
-			inclusiveEnd = value
-		}
-	}
-
-	var collator JSONCollator
-
-	if startkey != nil {
-		i := sort.Search(len(result.Rows), func(i int) bool {
-			return collator.Collate(result.Rows[i].Key, startkey) >= 0
-		})
-		result.Rows = result.Rows[i:]
-	}
-
-	if limit > 0 && len(result.Rows) > limit {
-		result.Rows = result.Rows[:limit]
-	}
-
-	if endkey != nil {
-		limit := 0
-		if !inclusiveEnd {
-			limit = -1
-		}
-		i := sort.Search(len(result.Rows), func(i int) bool {
-			return collator.Collate(result.Rows[i].Key, endkey) > limit
-		})
-		result.Rows = result.Rows[:i]
-	}
-
-	if includeDocs {
-		newRows := make(ViewRows, len(result.Rows))
-		for i, row := range result.Rows {
-			//OPT: This may unmarshal the same doc more than once
-			raw, err := bucket.GetRaw(row.ID)
-			if err != nil {
-				return result, err
-			}
-			var parsedDoc interface{}
-			json.Unmarshal(raw, &parsedDoc)
-			newRows[i] = row
-			newRows[i].Doc = &parsedDoc
-		}
-		result.Rows = newRows
-	}
-
-	if reduce && reduceFunction != "" {
-		if err := ReduceViewResult(reduceFunction, &result); err != nil {
-			return result, err
-		}
-	}
-
-	result.TotalRows = len(result.Rows)
-	ohai("\t... view returned %d rows", result.TotalRows)
-	return result, nil
-}
-
-func ReduceViewResult(reduceFunction string, result *ViewResult) error {
-	switch reduceFunction {
-	case "_count":
-		result.Rows = []*ViewRow{{Value: float64(len(result.Rows))}}
-		return nil
-	default:
-		// TODO: Implement other reduce functions!
-		return fmt.Errorf("Walrus only supports _count reduce function")
-	}
-}
-
-//////// VIEW RESULT: (implementation of sort.Interface interface)
-
-func (result *ViewResult) Len() int {
-	return len(result.Rows)
-}
-
-func (result *ViewResult) Swap(i, j int) {
-	temp := result.Rows[i]
-	result.Rows[i] = result.Rows[j]
-	result.Rows[j] = temp
-}
-
-func (result *ViewResult) Less(i, j int) bool {
-	return result.Collator.Collate(result.Rows[i].Key, result.Rows[j].Key) < 0
 }
 
 //////// DUMP:

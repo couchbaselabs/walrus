@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"runtime"
@@ -20,6 +21,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/couchbase/sg-bucket"
 )
 
 // The persistent portion of a lolrus object (the stuff that gets archived to disk.)
@@ -51,8 +54,8 @@ type lolrusDoc struct {
 
 // Creates a simple in-memory Bucket, suitable only for amusement purposes & testing.
 // The Bucket is created empty. There is no way to save it persistently.
-func NewBucket(bucketName string) Bucket {
-	ohai("NewBucket %s", bucketName)
+func NewBucket(bucketName string) sgbucket.Bucket {
+	log.Printf("NewBucket %s", bucketName)
 	bucket := &lolrus{
 		name: bucketName,
 		lolrusData: lolrusData{
@@ -65,7 +68,7 @@ func NewBucket(bucketName string) Bucket {
 	return bucket
 }
 
-var buckets map[[3]string]Bucket
+var buckets map[[3]string]sgbucket.Bucket
 var bucketsLock sync.Mutex
 
 // Returns a Walrus-based Bucket specific to the given (url, pool, bucketname) tuple.
@@ -83,12 +86,12 @@ var bucketsLock sync.Mutex
 //
 // If the URL isn't considered a directory (e.g. "walrus:" or ""), the bucket will just be
 // created in memory using NewBucket.
-func GetBucket(url, poolName, bucketName string) (Bucket, error) {
+func GetBucket(url, poolName, bucketName string) (sgbucket.Bucket, error) {
 	bucketsLock.Lock()
 	defer bucketsLock.Unlock()
 
 	if buckets == nil {
-		buckets = make(map[[3]string]Bucket)
+		buckets = make(map[[3]string]sgbucket.Bucket)
 	}
 	key := [3]string{url, poolName, bucketName}
 	bucket := buckets[key]
@@ -160,7 +163,7 @@ func (bucket *lolrus) Close() {
 	defer bucket.lock.Unlock()
 
 	if bucket.Docs != nil {
-		ohai("Close %s", bucket.GetName())
+		log.Printf("Close %s", bucket.GetName())
 		bucket._closePersist()
 		bucket.Docs = nil
 		bucket.DesignDocs = nil
@@ -185,7 +188,7 @@ func (bucket *lolrus) assertNotClosed() {
 
 func (bucket *lolrus) missingError(key string) error {
 	bucket.assertNotClosed()
-	return MissingError{key}
+	return sgbucket.MissingError{key}
 }
 
 //////// GET:
@@ -226,9 +229,9 @@ func (bucket *lolrus) Get(k string, rv interface{}) error {
 
 //////// WRITE:
 
-func (bucket *lolrus) Write(k string, flags int, exp int, v interface{}, opt WriteOptions) (err error) {
+func (bucket *lolrus) Write(k string, flags int, exp int, v interface{}, opt sgbucket.WriteOptions) (err error) {
 	// Marshal JSON if the value is not raw:
-	isJSON := (opt&Raw == 0)
+	isJSON := (opt&sgbucket.Raw == 0)
 	var data []byte
 	if !isJSON {
 		if v != nil {
@@ -252,9 +255,9 @@ func (bucket *lolrus) Write(k string, flags int, exp int, v interface{}, opt Wri
 }
 
 // Waits until the given sequence has been persisted or made indexable.
-func (bucket *lolrus) waitAfterWrite(seq uint64, opt WriteOptions) error {
+func (bucket *lolrus) waitAfterWrite(seq uint64, opt sgbucket.WriteOptions) error {
 	// This method ignores the Indexable option because all writes are immediately indexable.
-	if opt&Persist != 0 {
+	if opt&sgbucket.Persist != 0 {
 		if bucket.path == "" {
 			return errors.New("Bucket is non-persistent")
 		}
@@ -264,39 +267,39 @@ func (bucket *lolrus) waitAfterWrite(seq uint64, opt WriteOptions) error {
 			if bucket.isSequenceSaved(seq) {
 				break
 			} else if time.Since(start) > 5*time.Second {
-				return ErrTimeout
+				return sgbucket.ErrTimeout
 			}
 		}
 	}
 	return nil
 }
 
-func (bucket *lolrus) write(k string, exp int, raw []byte, opt WriteOptions) (seq uint64, err error) {
+func (bucket *lolrus) write(k string, exp int, raw []byte, opt sgbucket.WriteOptions) (seq uint64, err error) {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
 	doc := bucket.Docs[k]
 	if doc == nil {
 		bucket.assertNotClosed()
-		if raw == nil || opt&Append != 0 {
+		if raw == nil || opt&sgbucket.Append != 0 {
 			return 0, bucket.missingError(k)
 		}
 		doc = &lolrusDoc{}
 		bucket.Docs[k] = doc
 	} else if doc.Raw == nil {
-		if raw == nil || opt&Append != 0 {
+		if raw == nil || opt&sgbucket.Append != 0 {
 			return 0, bucket.missingError(k)
 		}
 	} else {
-		if opt&AddOnly != 0 {
-			return 0, ErrKeyExists
+		if opt&sgbucket.AddOnly != 0 {
+			return 0, sgbucket.ErrKeyExists
 		}
-		if opt&Append != 0 {
+		if opt&sgbucket.Append != 0 {
 			raw = append(doc.Raw, raw...)
 		}
 	}
 	doc.Raw = raw
-	doc.IsJSON = (opt&(Raw|Append) == 0)
+	doc.IsJSON = (opt&(sgbucket.Raw|sgbucket.Append) == 0)
 	doc.Sequence = bucket._nextSequence()
 
 	// Post a TAP notification:
@@ -311,9 +314,9 @@ func (bucket *lolrus) write(k string, exp int, raw []byte, opt WriteOptions) (se
 
 //////// ADD / SET / DELETE:
 
-func (bucket *lolrus) add(k string, exp int, v interface{}, opt WriteOptions) (added bool, err error) {
-	err = bucket.Write(k, 0, exp, v, opt|AddOnly)
-	if err == ErrKeyExists {
+func (bucket *lolrus) add(k string, exp int, v interface{}, opt sgbucket.WriteOptions) (added bool, err error) {
+	err = bucket.Write(k, 0, exp, v, opt|sgbucket.AddOnly)
+	if err == sgbucket.ErrKeyExists {
 		return false, nil
 	}
 	return (err == nil), err
@@ -323,7 +326,7 @@ func (bucket *lolrus) AddRaw(k string, exp int, v []byte) (added bool, err error
 	if v == nil {
 		panic("nil value")
 	}
-	return bucket.add(k, exp, v, Raw)
+	return bucket.add(k, exp, v, sgbucket.Raw)
 }
 
 func (bucket *lolrus) Add(k string, exp int, v interface{}) (added bool, err error) {
@@ -334,7 +337,7 @@ func (bucket *lolrus) SetRaw(k string, exp int, v []byte) error {
 	if v == nil {
 		panic("nil value")
 	}
-	return bucket.Write(k, 0, exp, v, Raw)
+	return bucket.Write(k, 0, exp, v, sgbucket.Raw)
 }
 
 func (bucket *lolrus) Set(k string, exp int, v interface{}) error {
@@ -342,26 +345,26 @@ func (bucket *lolrus) Set(k string, exp int, v interface{}) error {
 }
 
 func (bucket *lolrus) Delete(k string) error {
-	return bucket.Write(k, 0, 0, nil, Raw)
+	return bucket.Write(k, 0, 0, nil, sgbucket.Raw)
 }
 
 func (bucket *lolrus) Append(k string, data []byte) error {
 	if data == nil {
 		panic("nil value")
 	}
-	return bucket.Write(k, 0, 0, data, Append|Raw)
+	return bucket.Write(k, 0, 0, data, sgbucket.Append|sgbucket.Raw)
 }
 
 //////// UPDATE:
 
-func (bucket *lolrus) WriteUpdate(k string, exp int, callback WriteUpdateFunc) error {
+func (bucket *lolrus) WriteUpdate(k string, exp int, callback sgbucket.WriteUpdateFunc) error {
 	var err error
-	var opts WriteOptions
+	var opts sgbucket.WriteOptions
 	var seq uint64
 	for {
 		var doc lolrusDoc = bucket.getDoc(k)
 		doc.Raw, opts, err = callback(copySlice(doc.Raw))
-		doc.IsJSON = doc.Raw != nil && ((opts & Raw) == 0)
+		doc.IsJSON = doc.Raw != nil && ((opts & sgbucket.Raw) == 0)
 		if err != nil {
 			return err
 		} else if seq = bucket.updateDoc(k, &doc); seq > 0 {
@@ -372,8 +375,8 @@ func (bucket *lolrus) WriteUpdate(k string, exp int, callback WriteUpdateFunc) e
 	return bucket.waitAfterWrite(seq, opts)
 }
 
-func (bucket *lolrus) Update(k string, exp int, callback UpdateFunc) error {
-	writeCallback := func(current []byte) (updated []byte, opts WriteOptions, err error) {
+func (bucket *lolrus) Update(k string, exp int, callback sgbucket.UpdateFunc) error {
+	writeCallback := func(current []byte) (updated []byte, opts sgbucket.WriteOptions, err error) {
 		updated, err = callback(current)
 		return
 	}
@@ -437,7 +440,7 @@ func (bucket *lolrus) Incr(k string, amt, def uint64, exp int) (uint64, error) {
 	} else {
 		bucket.assertNotClosed()
 		if exp < 0 {
-			return 0, MissingError{k}
+			return 0, sgbucket.MissingError{k}
 		}
 		counter = def
 	}
