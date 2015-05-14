@@ -14,10 +14,11 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/couchbase/sg-bucket"
 	"github.com/couchbaselabs/go.assert"
 )
 
-func setJSON(bucket Bucket, docid string, jsonDoc string) error {
+func setJSON(bucket sgbucket.Bucket, docid string, jsonDoc string) error {
 	var obj interface{}
 	err := json.Unmarshal([]byte(jsonDoc), &obj)
 	if err != nil {
@@ -31,14 +32,14 @@ func TestDeleteThenAdd(t *testing.T) {
 	defer bucket.Close()
 
 	var value interface{}
-	assert.DeepEquals(t, bucket.Get("key", &value), MissingError{"key"})
+	assert.DeepEquals(t, bucket.Get("key", &value), sgbucket.MissingError{"key"})
 	added, err := bucket.Add("key", 0, "value")
 	assertNoError(t, err, "Add")
 	assert.True(t, added)
 	assertNoError(t, bucket.Get("key", &value), "Get")
 	assert.Equals(t, value, "value")
 	assertNoError(t, bucket.Delete("key"), "Delete")
-	assert.DeepEquals(t, bucket.Get("key", &value), MissingError{"key"})
+	assert.DeepEquals(t, bucket.Get("key", &value), sgbucket.MissingError{"key"})
 	added, err = bucket.Add("key", 0, "value")
 	assertNoError(t, err, "Add")
 	assert.True(t, added)
@@ -93,7 +94,7 @@ func TestAppend(t *testing.T) {
 	defer bucket.Close()
 
 	err := bucket.Append("key", []byte(" World"))
-	assert.DeepEquals(t, err, MissingError{"key"})
+	assert.DeepEquals(t, err, sgbucket.MissingError{"key"})
 
 	err = bucket.SetRaw("key", 0, []byte("Hello"))
 	assertNoError(t, err, "SetRaw")
@@ -130,11 +131,11 @@ func TestView(t *testing.T) {
 	result, err := bucket.View("docname", "view1", options)
 	assertNoError(t, err, "View call failed")
 	assert.Equals(t, result.TotalRows, 5)
-	assert.DeepEquals(t, result.Rows[0], &ViewRow{ID: "doc3", Key: 17.0, Value: []interface{}{"v3"}})
-	assert.DeepEquals(t, result.Rows[1], &ViewRow{ID: "doc1", Key: "k1", Value: "v1"})
-	assert.DeepEquals(t, result.Rows[2], &ViewRow{ID: "doc2", Key: "k2", Value: "v2"})
-	assert.DeepEquals(t, result.Rows[3], &ViewRow{ID: "doc4", Key: []interface{}{17.0, false}})
-	assert.DeepEquals(t, result.Rows[4], &ViewRow{ID: "doc5", Key: []interface{}{17.0, true}})
+	assert.DeepEquals(t, result.Rows[0], &sgbucket.ViewRow{ID: "doc3", Key: 17.0, Value: []interface{}{"v3"}})
+	assert.DeepEquals(t, result.Rows[1], &sgbucket.ViewRow{ID: "doc1", Key: "k1", Value: "v1"})
+	assert.DeepEquals(t, result.Rows[2], &sgbucket.ViewRow{ID: "doc2", Key: "k2", Value: "v2"})
+	assert.DeepEquals(t, result.Rows[3], &sgbucket.ViewRow{ID: "doc4", Key: []interface{}{17.0, false}})
+	assert.DeepEquals(t, result.Rows[4], &sgbucket.ViewRow{ID: "doc5", Key: []interface{}{17.0, true}})
 
 	// Try a startkey:
 	options["startkey"] = "k2"
@@ -143,7 +144,7 @@ func TestView(t *testing.T) {
 	assertNoError(t, err, "View call failed")
 	assert.Equals(t, result.TotalRows, 3)
 	var expectedDoc interface{} = map[string]interface{}{"key": "k2", "value": "v2"}
-	assert.DeepEquals(t, result.Rows[0], &ViewRow{ID: "doc2", Key: "k2", Value: "v2",
+	assert.DeepEquals(t, result.Rows[0], &sgbucket.ViewRow{ID: "doc2", Key: "k2", Value: "v2",
 		Doc: &expectedDoc})
 
 	// Try an endkey:
@@ -151,7 +152,7 @@ func TestView(t *testing.T) {
 	result, err = bucket.View("docname", "view1", options)
 	assertNoError(t, err, "View call failed")
 	assert.Equals(t, result.TotalRows, 1)
-	assert.DeepEquals(t, result.Rows[0], &ViewRow{ID: "doc2", Key: "k2", Value: "v2",
+	assert.DeepEquals(t, result.Rows[0], &sgbucket.ViewRow{ID: "doc2", Key: "k2", Value: "v2",
 		Doc: &expectedDoc})
 
 	// Try an endkey out of range:
@@ -159,7 +160,7 @@ func TestView(t *testing.T) {
 	result, err = bucket.View("docname", "view1", options)
 	assertNoError(t, err, "View call failed")
 	assert.Equals(t, result.TotalRows, 1)
-	assert.DeepEquals(t, result.Rows[0], &ViewRow{ID: "doc2", Key: "k2", Value: "v2",
+	assert.DeepEquals(t, result.Rows[0], &sgbucket.ViewRow{ID: "doc2", Key: "k2", Value: "v2",
 		Doc: &expectedDoc})
 
 	// Try without inclusive_end:
@@ -174,12 +175,12 @@ func TestView(t *testing.T) {
 	result, err = bucket.View("docname", "view1", options)
 	assertNoError(t, err, "View call failed")
 	assert.Equals(t, result.TotalRows, 1)
-	assert.DeepEquals(t, result.Rows[0], &ViewRow{ID: "doc2", Key: "k2", Value: "v2",
+	assert.DeepEquals(t, result.Rows[0], &sgbucket.ViewRow{ID: "doc2", Key: "k2", Value: "v2",
 		Doc: &expectedDoc})
 
 	// Delete the design doc:
 	assertNoError(t, bucket.DeleteDDoc("docname"), "DeleteDDoc")
-	assert.DeepEquals(t, bucket.GetDDoc("docname", &echo), MissingError{"docname"})
+	assert.DeepEquals(t, bucket.GetDDoc("docname", &echo), sgbucket.MissingError{"docname"})
 }
 
 func TestCheckDDoc(t *testing.T) {

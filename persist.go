@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"time"
+
+	"github.com/couchbase/sg-bucket"
 )
 
 // How long to wait after an in-memory change before saving to disk
@@ -60,7 +62,7 @@ func load(path string) (*lolrus, error) {
 		}
 	}
 	runtime.SetFinalizer(bucket, (*lolrus).Close)
-	ohai("Loaded bucket from %s", path)
+	log.Printf("Loaded bucket from %s", path)
 	return bucket, nil
 }
 
@@ -69,7 +71,7 @@ func loadOrNew(path string, name string) (*lolrus, error) {
 	if os.IsNotExist(err) {
 		bucket = NewBucket(name).(*lolrus)
 		bucket.path = path
-		ohai("New bucket for new path %s", path)
+		log.Printf("New bucket for new path %s", path)
 		return bucket, nil
 	}
 	return bucket, err
@@ -87,7 +89,7 @@ func (bucket *lolrus) _saveSoon() {
 			defer bucket.lock.Unlock()
 			if bucket.saving {
 				bucket.saving = false
-				ohai("Saving bucket to %s", bucket.path)
+				log.Printf("Saving bucket to %s", bucket.path)
 				if err := bucket._save(); err != nil {
 					log.Printf("Walrus: Warning: Couldn't save walrus bucket: %v", err)
 				}
@@ -99,7 +101,7 @@ func (bucket *lolrus) _saveSoon() {
 // Loads or creates a persistent bucket in the given filesystem directory.
 // The bucket's backing file will be named "bucketName.walrus", or if the poolName is not
 // empty "default", "poolName-bucketName.walrus".
-func NewPersistentBucket(dir, poolName, bucketName string) (Bucket, error) {
+func NewPersistentBucket(dir, poolName, bucketName string) (sgbucket.Bucket, error) {
 	filename := bucketName + ".walrus"
 	if poolName != "" && poolName != "default" {
 		filename = poolName + "-" + filename
