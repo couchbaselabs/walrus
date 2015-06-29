@@ -226,6 +226,27 @@ func (bucket *lolrus) Get(k string, rv interface{}) error {
 	return json.Unmarshal(raw, rv)
 }
 
+func (bucket *lolrus) GetBulkRaw(keys []string) (map[string][]byte, error) {
+	result := make(map[string][]byte)
+	errs := multiError{}
+	hadError := false
+
+	for _, key := range keys {
+		value, err := bucket.GetRaw(key)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		result[key] = value
+	}
+
+	if hadError {
+		return result, errs
+	} else {
+		return result, nil
+	}
+
+}
+
 //////// WRITE:
 
 func (bucket *lolrus) Write(k string, flags int, exp int, v interface{}, opt sgbucket.WriteOptions) (err error) {

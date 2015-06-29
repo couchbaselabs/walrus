@@ -193,6 +193,26 @@ func TestCheckDDoc(t *testing.T) {
 	assertTrue(t, err != nil, "CheckDDoc should have rejected non-JS")
 }
 
+func TestGetBulkRaw(t *testing.T) {
+
+	bucket := NewBucket("buckit")
+	defer bucket.Close()
+
+	// add two keys
+	err := bucket.SetRaw("key1", 0, []byte("value1"))
+	assertNoError(t, err, "SetRaw")
+	err = bucket.SetRaw("key2", 0, []byte("value2"))
+	assertNoError(t, err, "SetRaw")
+
+	// call bulk get raw
+	resultRaw, err := bucket.GetBulkRaw([]string{"key1", "key2"})
+	assertNoError(t, err, "GetBulkRaw")
+	assert.Equals(t, len(resultRaw), 2)
+	assert.DeepEquals(t, resultRaw["key1"], []byte("value1"))
+	assert.DeepEquals(t, resultRaw["key2"], []byte("value2"))
+
+}
+
 //////// HELPERS:
 
 func assertNoError(t *testing.T, err error, message string) {
