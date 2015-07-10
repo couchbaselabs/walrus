@@ -102,7 +102,7 @@ func TestWriteWithPersist(t *testing.T) {
 
 	// Load the file into a new bucket to make sure the value got saved to disk:
 	bucket2, err := load(bucket.(*lolrus).path)
-	value, err := bucket2.GetRaw("key1")
+	value, _, err := bucket2.GetRaw("key1")
 	assertNoError(t, err, "Get failed")
 	assert.Equals(t, string(value), "value1")
 	bucket2.Close()

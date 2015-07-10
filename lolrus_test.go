@@ -32,14 +32,17 @@ func TestDeleteThenAdd(t *testing.T) {
 	defer bucket.Close()
 
 	var value interface{}
-	assert.DeepEquals(t, bucket.Get("key", &value), sgbucket.MissingError{"key"})
+	_, err := bucket.Get("key", &value)
+	assert.DeepEquals(t, err, sgbucket.MissingError{"key"})
 	added, err := bucket.Add("key", 0, "value")
 	assertNoError(t, err, "Add")
 	assert.True(t, added)
-	assertNoError(t, bucket.Get("key", &value), "Get")
+	_, err = bucket.Get("key", &value)
+	assertNoError(t, err, "Get")
 	assert.Equals(t, value, "value")
 	assertNoError(t, bucket.Delete("key"), "Delete")
-	assert.DeepEquals(t, bucket.Get("key", &value), sgbucket.MissingError{"key"})
+	_, err = bucket.Get("key", &value)
+	assert.DeepEquals(t, err, sgbucket.MissingError{"key"})
 	added, err = bucket.Add("key", 0, "value")
 	assertNoError(t, err, "Add")
 	assert.True(t, added)
@@ -100,7 +103,7 @@ func TestAppend(t *testing.T) {
 	assertNoError(t, err, "SetRaw")
 	err = bucket.Append("key", []byte(" World"))
 	assertNoError(t, err, "Append")
-	value, err := bucket.GetRaw("key")
+	value, _, err := bucket.GetRaw("key")
 	assertNoError(t, err, "GetRaw")
 	assert.DeepEquals(t, value, []byte("Hello World"))
 }
@@ -211,6 +214,109 @@ func TestGetBulkRaw(t *testing.T) {
 	assert.DeepEquals(t, resultRaw["key1"], []byte("value1"))
 	assert.DeepEquals(t, resultRaw["key2"], []byte("value2"))
 
+}
+
+func TestGets(t *testing.T) {
+
+	bucket := &lolrus{
+		name: "buckit",
+		lolrusData: lolrusData{
+			Docs:       map[string]*lolrusDoc{},
+			DesignDocs: map[string]*DesignDoc{},
+		},
+		views: map[string]lolrusDesignDoc{},
+	}
+	defer bucket.Close()
+
+	// Gets (JSON)
+	added, err := bucket.Add("key", 0, "value")
+	assertNoError(t, err, "Add")
+	assert.True(t, added)
+
+	var value interface{}
+	cas, err := bucket.Get("key", &value)
+	assertNoError(t, err, "Gets")
+	assert.True(t, cas > 0)
+	assert.DeepEquals(t, value, "value")
+
+	// GetsRaw
+	err = bucket.SetRaw("keyraw", 0, []byte("Hello"))
+	assertNoError(t, err, "SetRaw")
+
+	value, cas, err = bucket.GetRaw("keyraw")
+	assertNoError(t, err, "GetsRaw")
+	assert.True(t, cas > 0)
+	assert.DeepEquals(t, value, []byte("Hello"))
+
+}
+
+func TestWriteCas(t *testing.T) {
+
+	bucket := &lolrus{
+		name: "buckit",
+		lolrusData: lolrusData{
+			Docs:       map[string]*lolrusDoc{},
+			DesignDocs: map[string]*DesignDoc{},
+		},
+		views: map[string]lolrusDesignDoc{},
+	}
+	defer bucket.Close()
+
+	// Add with WriteCas - JSON docs
+	// Insert
+	var obj interface{}
+	err := json.Unmarshal([]byte(`{"value":"value1"}`), &obj)
+	cas, err := bucket.WriteCas("key1", 0, 0, 0, obj, 0)
+	assertNoError(t, err, "WriteCas")
+	assertTrue(t, cas > 0, "Cas value should be greater than zero")
+
+	// Update document with wrong (zero) cas value
+	err = json.Unmarshal([]byte(`{"value":"value2"}`), &obj)
+	newCas, err := bucket.WriteCas("key1", 0, 0, 0, obj, 0)
+	assertTrue(t, err != nil, "Invalid cas should have returned error.")
+	assert.Equals(t, newCas, uint64(0))
+
+	// Update document with correct cas value
+	err = json.Unmarshal([]byte(`{"value":"value2"}`), &obj)
+	newCas, err = bucket.WriteCas("key1", 0, 0, cas, obj, 0)
+	assertTrue(t, err == nil, "Valid cas should not have returned error.")
+	assertTrue(t, cas > 0, "Cas value should be greater than zero")
+	assertTrue(t, cas != newCas, "Cas value should change on successful update")
+	var result interface{}
+	getCas, err := bucket.Get("key1", &result)
+	assert.DeepEquals(t, result, obj)
+	assert.Equals(t, getCas, newCas)
+
+	// Update document with obsolete case value
+	err = json.Unmarshal([]byte(`{"value":"value3"}`), &obj)
+	newCas, err = bucket.WriteCas("key1", 0, 0, cas, obj, 0)
+	assertTrue(t, err != nil, "Invalid cas should have returned error.")
+	assert.Equals(t, newCas, uint64(0))
+
+	// Add with WriteCas - raw docs
+	// Insert
+	cas, err = bucket.WriteCas("keyraw1", 0, 0, 0, []byte("value1"), sgbucket.Raw)
+	assertNoError(t, err, "WriteCas")
+	assertTrue(t, cas > 0, "Cas value should be greater than zero")
+
+	// Update document with wrong (zero) cas value
+	newCas, err = bucket.WriteCas("keyraw1", 0, 0, 0, []byte("value2"), sgbucket.Raw)
+	assertTrue(t, err != nil, "Invalid cas should have returned error.")
+	assert.Equals(t, newCas, uint64(0))
+
+	// Update document with correct cas value
+	newCas, err = bucket.WriteCas("keyraw1", 0, 0, cas, []byte("value2"), sgbucket.Raw)
+	assertTrue(t, err == nil, "Valid cas should not have returned error.")
+	assertTrue(t, cas > 0, "Cas value should be greater than zero")
+	assertTrue(t, cas != newCas, "Cas value should change on successful update")
+	value, getCas, err := bucket.GetRaw("keyraw1")
+	assert.DeepEquals(t, value, []byte("value2"))
+	assert.Equals(t, getCas, newCas)
+
+	// Update document with obsolete case value
+	newCas, err = bucket.WriteCas("keyraw1", 0, 0, cas, []byte("value3"), sgbucket.Raw)
+	assertTrue(t, err != nil, "Invalid cas should have returned error.")
+	assert.Equals(t, newCas, uint64(0))
 }
 
 //////// HELPERS:
