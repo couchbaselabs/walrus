@@ -202,26 +202,44 @@ func copySlice(slice []byte) []byte {
 }
 
 // Private version of GetRaw returns an uncopied slice.
-func (bucket *lolrus) getRaw(k string) ([]byte, error) {
+func (bucket *lolrus) getRaw(k string) ([]byte, uint64, error) {
 	bucket.lock.RLock()
 	defer bucket.lock.RUnlock()
 
 	doc := bucket.Docs[k]
 	if doc == nil || doc.Raw == nil {
-		return nil, bucket.missingError(k)
+		return nil, 0, bucket.missingError(k)
 	}
-	return copySlice(doc.Raw), nil
+	return copySlice(doc.Raw), doc.Sequence, nil
 }
 
 func (bucket *lolrus) GetRaw(k string) ([]byte, error) {
-	raw, err := bucket.getRaw(k)
+	raw, _, err := bucket.getRaw(k)
 	return copySlice(raw), err // Public API returns copied slice to avoid client altering doc
 }
 
+// Returns doc and cas value (sequence)
+func (bucket *lolrus) GetsRaw(k string) ([]byte, int, uint64, error) {
+	raw, cas, err := bucket.getRaw(k)
+	return copySlice(raw), 0, cas, err
+}
+
 func (bucket *lolrus) Get(k string, rv interface{}) error {
-	raw, err := bucket.getRaw(k)
+	raw, _, err := bucket.getRaw(k)
 	if err != nil {
 		return err
+	}
+	return json.Unmarshal(raw, rv)
+}
+
+// Returns doc and cas value (sequence)
+func (bucket *lolrus) Gets(k string, rv interface{}, caso *uint64) error {
+	raw, cas, err := bucket.getRaw(k)
+	if err != nil {
+		return err
+	}
+	if caso != nil {
+		*caso = cas
 	}
 	return json.Unmarshal(raw, rv)
 }
@@ -252,16 +270,9 @@ func (bucket *lolrus) GetBulkRaw(keys []string) (map[string][]byte, error) {
 func (bucket *lolrus) Write(k string, flags int, exp int, v interface{}, opt sgbucket.WriteOptions) (err error) {
 	// Marshal JSON if the value is not raw:
 	isJSON := (opt&sgbucket.Raw == 0)
-	var data []byte
-	if !isJSON {
-		if v != nil {
-			data = copySlice(v.([]byte))
-		}
-	} else {
-		data, err = json.Marshal(v)
-		if err != nil {
-			return err
-		}
+	data, err := bucket.getData(v, isJSON)
+	if err != nil {
+		return err
 	}
 
 	// Now do the actual write:
@@ -272,6 +283,41 @@ func (bucket *lolrus) Write(k string, flags int, exp int, v interface{}, opt sgb
 
 	// Wait for persistent save, if that flag is set:
 	return bucket.waitAfterWrite(seq, opt)
+}
+
+func (bucket *lolrus) WriteCas(k string, flags int, exp int, cas uint64, v interface{}, opt sgbucket.WriteOptions) (ocas uint64, err error) {
+
+	// Marshal JSON if the value is not raw:
+	isJSON := (opt&sgbucket.Raw == 0)
+	data, err := bucket.getData(v, isJSON)
+	if err != nil {
+		return 0, err
+	}
+
+	doc := &lolrusDoc{}
+	doc.Sequence = cas
+	doc.Raw = data
+
+	// Update
+	ocas = bucket.updateDoc(k, doc)
+	if ocas == 0 {
+		return ocas, errors.New("CAS mismatch")
+	}
+
+	// Wait for persistent save, if that flag is set:
+	err = bucket.waitAfterWrite(ocas, opt)
+	return ocas, err
+}
+
+func (bucket *lolrus) getData(v interface{}, isJSON bool) (data []byte, err error) {
+	if !isJSON {
+		if v != nil {
+			data = copySlice(v.([]byte))
+		}
+	} else {
+		data, err = json.Marshal(v)
+	}
+	return data, err
 }
 
 // Waits until the given sequence has been persisted or made indexable.
