@@ -83,7 +83,7 @@ func collationType(value interface{}) token {
 			return kFalse
 		}
 		return kTrue
-	case float64, uint64, json.Number:
+	case float64, uint64, json.Number, int:
 		return kNumber
 	case string:
 		return kString
@@ -117,6 +117,9 @@ func collationToFloat64(value interface{}) float64 {
 			panic(err)
 		}
 		return rv
+	}
+	if i, ok := value.(int); ok {
+		return float64(i)
 	}
 	panic(fmt.Sprintf("collationToFloat64 doesn't understand %+v", value))
 }
