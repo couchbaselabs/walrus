@@ -218,6 +218,11 @@ func (bucket *lolrus) GetRaw(k string) (rv []byte, cas uint64, err error) {
 	return copySlice(raw), cas, err // Public API returns copied slice to avoid client altering doc
 }
 
+func (bucket *lolrus) GetAndTouchRaw(k string, exp int) (rv []byte, cas uint64, err error) {
+	// Until walrus supports expiry, the exp value is ignored
+	return bucket.GetRaw(k)
+}
+
 func (bucket *lolrus) Get(k string, rv interface{}) (cas uint64, err error) {
 	raw, cas, err := bucket.getRaw(k)
 	if err != nil {
