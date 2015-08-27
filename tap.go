@@ -44,6 +44,10 @@ func (feed *tapFeedImpl) Events() <-chan sgbucket.TapEvent {
 	return feed.channel
 }
 
+func (feed *tapFeedImpl) WriteEvents() chan<- sgbucket.TapEvent {
+	return feed.channel
+}
+
 // Closes a TapFeed. Call this if you stop using a TapFeed before its channel ends.
 func (feed *tapFeedImpl) Close() error {
 	feed.bucket.lock.Lock()
