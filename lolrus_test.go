@@ -110,13 +110,13 @@ func TestAppend(t *testing.T) {
 
 // Create a simple view and run it on some documents
 func TestView(t *testing.T) {
-	ddoc := DesignDoc{Views: ViewMap{"view1": ViewDef{Map: `function(doc){if (doc.key) emit(doc.key,doc.value)}`}}}
+	ddoc := sgbucket.DesignDoc{Views: sgbucket.ViewMap{"view1": sgbucket.ViewDef{Map: `function(doc){if (doc.key) emit(doc.key,doc.value)}`}}}
 	bucket := NewBucket("buckit")
 	defer bucket.Close()
 	err := bucket.PutDDoc("docname", ddoc)
 	assertNoError(t, err, "PutDDoc failed")
 
-	var echo DesignDoc
+	var echo sgbucket.DesignDoc
 	err = bucket.GetDDoc("docname", &echo)
 	assert.DeepEquals(t, echo, ddoc)
 
@@ -187,11 +187,11 @@ func TestView(t *testing.T) {
 }
 
 func TestCheckDDoc(t *testing.T) {
-	ddoc := DesignDoc{Views: ViewMap{"view1": ViewDef{Map: `function(doc){if (doc.key) emit(doc.key,doc.value)}`}}}
+	ddoc := sgbucket.DesignDoc{Views: sgbucket.ViewMap{"view1": sgbucket.ViewDef{Map: `function(doc){if (doc.key) emit(doc.key,doc.value)}`}}}
 	_, err := CheckDDoc(&ddoc)
 	assertNoError(t, err, "CheckDDoc should have worked")
 
-	ddoc = DesignDoc{Language: "go"}
+	ddoc = sgbucket.DesignDoc{Language: "go"}
 	_, err = CheckDDoc(&ddoc)
 	assertTrue(t, err != nil, "CheckDDoc should have rejected non-JS")
 }
@@ -222,7 +222,7 @@ func TestGets(t *testing.T) {
 		name: "buckit",
 		lolrusData: lolrusData{
 			Docs:       map[string]*lolrusDoc{},
-			DesignDocs: map[string]*DesignDoc{},
+			DesignDocs: map[string]*sgbucket.DesignDoc{},
 		},
 		views: map[string]lolrusDesignDoc{},
 	}
@@ -256,7 +256,7 @@ func TestWriteCas(t *testing.T) {
 		name: "buckit",
 		lolrusData: lolrusData{
 			Docs:       map[string]*lolrusDoc{},
-			DesignDocs: map[string]*DesignDoc{},
+			DesignDocs: map[string]*sgbucket.DesignDoc{},
 		},
 		views: map[string]lolrusDesignDoc{},
 	}
