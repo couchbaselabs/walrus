@@ -70,7 +70,7 @@ func (bucket *lolrus) DeleteDDoc(docname string) error {
 	return nil
 }
 
-func (bucket *lolrus) _compileDesignDoc(docname string, design *DesignDoc) error {
+func (bucket *lolrus) _compileDesignDoc(docname string, design *sgbucket.DesignDoc) error {
 	if design == nil {
 		return nil
 	}
@@ -88,13 +88,13 @@ func (bucket *lolrus) _compileDesignDoc(docname string, design *DesignDoc) error
 }
 
 // Validates a design document.
-func CheckDDoc(value interface{}) (*DesignDoc, error) {
+func CheckDDoc(value interface{}) (*sgbucket.DesignDoc, error) {
 	source, err := json.Marshal(value)
 	if err != nil {
 		return nil, err
 	}
 
-	var design DesignDoc
+	var design sgbucket.DesignDoc
 	if err := json.Unmarshal(source, &design); err != nil {
 		return nil, err
 	}

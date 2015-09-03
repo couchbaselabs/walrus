@@ -28,7 +28,7 @@ import (
 type lolrusData struct {
 	LastSeq    uint64                // Last sequence number assigned
 	Docs       map[string]*lolrusDoc // Maps doc ID -> lolrusDoc
-	DesignDocs map[string]*DesignDoc // Stores source form of design docs
+	DesignDocs map[string]*sgbucket.DesignDoc // Stores source form of design docs
 }
 
 // Simple, inefficient in-memory implementation of Bucket interface.
@@ -59,7 +59,7 @@ func NewBucket(bucketName string) sgbucket.Bucket {
 		name: bucketName,
 		lolrusData: lolrusData{
 			Docs:       map[string]*lolrusDoc{},
-			DesignDocs: map[string]*DesignDoc{},
+			DesignDocs: map[string]*sgbucket.DesignDoc{},
 		},
 		views: map[string]lolrusDesignDoc{},
 	}
