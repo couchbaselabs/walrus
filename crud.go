@@ -296,6 +296,22 @@ func (bucket *lolrus) WriteCas(k string, flags int, exp int, cas uint64, v inter
 	return casOut, err
 }
 
+func (bucket *lolrus) SetBulk(entries []*sgbucket.BulkSetEntry) (err error) {
+	for _, entry := range entries {
+		casOut, err := bucket.WriteCas(
+			entry.Key,
+			0, // flags
+			0, // expiry
+			entry.Cas,
+			entry.Value,
+			sgbucket.Raw, // WriteOptions
+		)
+		entry.Cas = casOut
+		entry.Error = err
+	}
+	return nil
+}
+
 func (bucket *lolrus) getData(v interface{}, isJSON bool) (data []byte, err error) {
 	if !isJSON {
 		if v != nil {
