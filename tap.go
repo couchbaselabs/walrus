@@ -11,7 +11,7 @@ type tapFeedImpl struct {
 
 // Starts a TAP feed on a client connection. The events can be read from the returned channel.
 // To stop receiving events, call Close() on the feed.
-func (bucket *lolrus) StartTapFeed(args sgbucket.TapArguments) (sgbucket.TapFeed, error) {
+func (bucket *lolrus) StartTapFeed(args sgbucket.TapArguments, notify sgbucket.BucketNotifyFn) (sgbucket.TapFeed, error) {
 	channel := make(chan sgbucket.TapEvent, 10)
 	feed := &tapFeedImpl{
 		bucket:  bucket,
