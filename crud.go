@@ -408,6 +408,10 @@ func (bucket *lolrus) Append(k string, data []byte) error {
 	return bucket.Write(k, 0, 0, data, sgbucket.Append|sgbucket.Raw)
 }
 
+func (bucket *lolrus) SetBulk(entries []*sgbucket.BulkSetEntry) (err error) {
+	return nil
+}
+
 //////// UPDATE:
 
 func (bucket *lolrus) WriteUpdate(k string, exp int, callback sgbucket.WriteUpdateFunc) error {
