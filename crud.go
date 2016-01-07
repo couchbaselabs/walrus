@@ -426,30 +426,33 @@ func (bucket *lolrus) Append(k string, data []byte) error {
 
 //////// UPDATE:
 
-func (bucket *lolrus) WriteUpdate(k string, exp int, callback sgbucket.WriteUpdateFunc) error {
+func (bucket *lolrus) WriteUpdate(k string, exp int, callback sgbucket.WriteUpdateFunc) ([]byte, error) {
 	var err error
 	var opts sgbucket.WriteOptions
 	var seq uint64
+	var oldJson []byte
 	for {
 		var doc lolrusDoc = bucket.getDoc(k)
-		doc.Raw, opts, err = callback(copySlice(doc.Raw))
+		doc.Raw, opts, oldJson, err = callback(copySlice(doc.Raw))
 		doc.IsJSON = doc.Raw != nil && ((opts & sgbucket.Raw) == 0)
 		if err != nil {
-			return err
+			return nil, err
 		} else if seq = bucket.updateDoc(k, &doc); seq > 0 {
 			break
 		}
 	}
 	// Document has been updated:
-	return bucket.waitAfterWrite(seq, opts)
+	return oldJson, bucket.waitAfterWrite(seq, opts)
 }
 
 func (bucket *lolrus) Update(k string, exp int, callback sgbucket.UpdateFunc) error {
-	writeCallback := func(current []byte) (updated []byte, opts sgbucket.WriteOptions, err error) {
+	writeCallback := func(current []byte) (updated []byte, opts sgbucket.WriteOptions, oldBody []byte, err error) {
 		updated, err = callback(current)
 		return
 	}
-	return bucket.WriteUpdate(k, exp, writeCallback)
+	_, err := bucket.WriteUpdate(k, exp, writeCallback)
+
+	return err
 }
 
 // Looks up a lolrusDoc and returns a copy of it, or an empty doc if one doesn't exist yet
