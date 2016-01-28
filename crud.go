@@ -26,8 +26,8 @@ import (
 
 // The persistent portion of a lolrus object (the stuff that gets archived to disk.)
 type lolrusData struct {
-	LastSeq    uint64                // Last sequence number assigned
-	Docs       map[string]*lolrusDoc // Maps doc ID -> lolrusDoc
+	LastSeq    uint64                         // Last sequence number assigned
+	Docs       map[string]*lolrusDoc          // Maps doc ID -> lolrusDoc
 	DesignDocs map[string]*sgbucket.DesignDoc // Stores source form of design docs
 }
 
@@ -486,13 +486,21 @@ func (bucket *lolrus) updateDoc(k string, doc *lolrusDoc) uint64 {
 //////// INCR:
 
 func (bucket *lolrus) Incr(k string, amt, def uint64, exp int) (uint64, error) {
-	if amt != 0 {
-		bucket.lock.Lock()
-		defer bucket.lock.Unlock()
-	} else {
-		bucket.lock.RLock()
-		defer bucket.lock.RUnlock()
-	}
+	// Potential concurrency issue if using RLock when amt=0 - can turn into a write if
+	// the key doesn't exist and so gets initialized to def.  Switching to a hard write lock
+	// for all operations for the time being - could be refactored back to read-then-write, but
+	// probably not a significant performance concern for walrus.
+	/*
+		if amt != 0 {
+			bucket.lock.Lock()
+			defer bucket.lock.Unlock()
+		} else {
+			bucket.lock.RLock()
+			defer bucket.lock.RUnlock()
+		}
+	*/
+	bucket.lock.Lock()
+	defer bucket.lock.Unlock()
 
 	var counter = def
 	doc := bucket.Docs[k]
