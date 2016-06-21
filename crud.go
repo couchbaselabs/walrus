@@ -530,3 +530,8 @@ func (bucket *lolrus) Incr(k string, amt, def uint64, exp int) (uint64, error) {
 	bucket._postTapMutationEvent(k, doc.Raw, doc.Sequence)
 	return counter, nil
 }
+
+
+func (bucket *lolrus)  Refresh() error {
+	return nil;
+}
