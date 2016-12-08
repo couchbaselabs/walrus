@@ -24,11 +24,15 @@ import (
 	"github.com/couchbase/sg-bucket"
 )
 
+type VbucketNo uint32
+type VbucketSeq uint64
+
 // The persistent portion of a lolrus object (the stuff that gets archived to disk.)
 type lolrusData struct {
 	LastSeq    uint64                         // Last sequence number assigned
 	Docs       map[string]*lolrusDoc          // Maps doc ID -> lolrusDoc
 	DesignDocs map[string]*sgbucket.DesignDoc // Stores source form of design docs
+	VbSeqs     map[VbucketNo]VbucketSeq
 }
 
 // Simple, inefficient in-memory implementation of Bucket interface.
@@ -48,6 +52,8 @@ type lolrus struct {
 type lolrusDoc struct {
 	Raw      []byte // Raw data content, or nil if deleted
 	IsJSON   bool   // Is the data a JSON document?
+	VbNo     uint32 // The vbno (just hash of doc id)
+	VbSeq    uint64 // Vb seq -- only used for doc meta for views
 	Sequence uint64 // Current sequence number assigned
 }
 
@@ -60,6 +66,7 @@ func NewBucket(bucketName string) sgbucket.Bucket {
 		lolrusData: lolrusData{
 			Docs:       map[string]*lolrusDoc{},
 			DesignDocs: map[string]*sgbucket.DesignDoc{},
+			VbSeqs:     map[VbucketNo]VbucketSeq{},
 		},
 		views: map[string]lolrusDesignDoc{},
 	}
@@ -284,6 +291,11 @@ func (bucket *lolrus) WriteCas(k string, flags int, exp int, cas uint64, v inter
 	doc := &lolrusDoc{}
 	doc.Sequence = cas
 	doc.Raw = data
+
+	// TODO
+	// hash doc id to get vbno
+	// increment vbcounter to get vbseq
+	// stick those on the doc
 
 	// Update
 	casOut = bucket.updateDoc(k, doc)
@@ -531,7 +543,6 @@ func (bucket *lolrus) Incr(k string, amt, def uint64, exp int) (uint64, error) {
 	return counter, nil
 }
 
-
-func (bucket *lolrus)  Refresh() error {
-	return nil;
+func (bucket *lolrus) Refresh() error {
+	return nil
 }
