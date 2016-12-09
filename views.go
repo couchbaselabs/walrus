@@ -154,6 +154,13 @@ func (bucket *lolrus) View(docName, viewName string, params map[string]interface
 	return sgbucket.ProcessViewResult(result, params, bucket, view.reduceFunction)
 }
 
+type jsMapFunctionInput struct {
+	docid string
+	raw   string
+	vbNo  sgbucket.VbucketNo
+	vbSeq sgbucket.VbucketSeq
+}
+
 // Updates the view index if necessary, and returns it.
 func (bucket *lolrus) updateView(view *lolrusView, toSequence uint64) sgbucket.ViewResult {
 	bucket.lock.Lock()
@@ -179,19 +186,21 @@ func (bucket *lolrus) updateView(view *lolrusView, toSequence uint64) sgbucket.V
 
 	// Build a parallel task to map docs:
 	mapFunction := view.mapFunction
-	mapper := func(rawInput interface{}, output chan<- interface{}) {
-		input := rawInput.([2]string)
-		docid := input[0]
-		raw := input[1]
-		rows, err := mapFunction.CallFunction(string(raw), docid)
+	mapper := func(input jsMapFunctionInput, output chan<- interface{}) {
+		rows, err := mapFunction.CallFunction(
+			string(input.raw),
+			input.docid,
+			input.vbNo,
+			input.vbSeq,
+		)
 		if err != nil {
 			log.Printf("Error running map function: %s", err)
-			output <- sgbucket.ViewError{docid, err.Error()}
+			output <- sgbucket.ViewError{input.docid, err.Error()}
 		} else {
 			output <- rows
 		}
 	}
-	mapInput := make(chan interface{})
+	mapInput := make(chan jsMapFunctionInput)
 	mapOutput := Parallelize(mapper, 0, mapInput)
 
 	// Start another task to read the map output and store it into result.Rows/Errors:
@@ -217,7 +226,12 @@ func (bucket *lolrus) updateView(view *lolrusView, toSequence uint64) sgbucket.V
 				if !doc.IsJSON {
 					raw = []byte(`{}`) // Ignore contents of non-JSON (raw) docs
 				}
-				mapInput <- [2]string{docid, string(raw)}
+				mapInput <- jsMapFunctionInput{
+					docid: docid,
+					raw:   string(raw),
+					vbNo:  doc.VbNo,
+					vbSeq: doc.VbSeq,
+				}
 				updatedKeys[docid] = struct{}{}
 			}
 		}

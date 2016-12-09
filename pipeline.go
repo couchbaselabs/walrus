@@ -5,27 +5,16 @@ import (
 	"sync"
 )
 
-type PipelineFunc func(input interface{}, output chan<- interface{})
+type PipelineFunc func(input jsMapFunctionInput, output chan<- interface{})
 
 type Pipeline struct {
 	funcs []PipelineFunc
-	input <-chan interface{}
-}
-
-func NewPipeline(chanSize int, parallelism int, funcs ...PipelineFunc) {
-	p := Pipeline{
-		funcs: funcs,
-		input: make(chan interface{}, chanSize),
-	}
-	var input <-chan interface{} = p.input
-	for _, f := range funcs {
-		input = Parallelize(f, parallelism, input)
-	}
+	input <-chan jsMapFunctionInput
 }
 
 // Feeds the input channel through a number of copies of the function in parallel.
 // This call is asynchronous. Output can be read from the returned channel.
-func Parallelize(f PipelineFunc, parallelism int, input <-chan interface{}) <-chan interface{} {
+func Parallelize(f PipelineFunc, parallelism int, input <-chan jsMapFunctionInput) <-chan interface{} {
 	if parallelism == 0 {
 		parallelism = runtime.GOMAXPROCS(0)
 	}

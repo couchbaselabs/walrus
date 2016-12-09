@@ -68,7 +68,7 @@ func load(path string) (*lolrus, error) {
 func loadOrNew(path string, name string) (*lolrus, error) {
 	bucket, err := load(path)
 	if os.IsNotExist(err) {
-		bucket = NewBucket(name).(*lolrus)
+		bucket = NewBucket(name)
 		bucket.path = path
 		logg("New bucket for new path %s", path)
 		return bucket, nil

@@ -21,18 +21,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/couchbase/sg-bucket"
+	sgbucket "github.com/couchbase/sg-bucket"
 )
 
-type VbucketNo uint32
-type VbucketSeq uint64
+const (
+	SimulatedVBucketCount = 4 // Used when hashing doc id -> vbno
+)
 
 // The persistent portion of a lolrus object (the stuff that gets archived to disk.)
 type lolrusData struct {
 	LastSeq    uint64                         // Last sequence number assigned
 	Docs       map[string]*lolrusDoc          // Maps doc ID -> lolrusDoc
 	DesignDocs map[string]*sgbucket.DesignDoc // Stores source form of design docs
-	VbSeqs     map[VbucketNo]VbucketSeq
 }
 
 // Simple, inefficient in-memory implementation of Bucket interface.
@@ -44,31 +44,32 @@ type lolrus struct {
 	lastSeqSaved uint64                     // LastSeq at time of last save
 	lock         sync.RWMutex               // For thread-safety
 	views        map[string]lolrusDesignDoc // Stores runtime view/index data
+	vbSeqs       sgbucket.VbucketSeqCounter // Per-vb sequence couner
 	tapFeeds     []*tapFeedImpl
 	lolrusData
 }
 
 // A document stored in a lolrus's .Docs map
 type lolrusDoc struct {
-	Raw      []byte // Raw data content, or nil if deleted
-	IsJSON   bool   // Is the data a JSON document?
-	VbNo     uint32 // The vbno (just hash of doc id)
-	VbSeq    uint64 // Vb seq -- only used for doc meta for views
-	Sequence uint64 // Current sequence number assigned
+	Raw      []byte              // Raw data content, or nil if deleted
+	IsJSON   bool                // Is the data a JSON document?
+	VbNo     sgbucket.VbucketNo  // The vbno (just hash of doc id)
+	VbSeq    sgbucket.VbucketSeq // Vb seq -- only used for doc meta for views
+	Sequence uint64              // Current sequence number assigned
 }
 
 // Creates a simple in-memory Bucket, suitable only for amusement purposes & testing.
 // The Bucket is created empty. There is no way to save it persistently.
-func NewBucket(bucketName string) sgbucket.Bucket {
+func NewBucket(bucketName string) *lolrus {
 	logg("NewBucket %s", bucketName)
 	bucket := &lolrus{
 		name: bucketName,
 		lolrusData: lolrusData{
 			Docs:       map[string]*lolrusDoc{},
 			DesignDocs: map[string]*sgbucket.DesignDoc{},
-			VbSeqs:     map[VbucketNo]VbucketSeq{},
 		},
-		views: map[string]lolrusDesignDoc{},
+		vbSeqs: sgbucket.NewMapVbucketSeqCounter(SimulatedVBucketCount),
+		views:  map[string]lolrusDesignDoc{},
 	}
 	runtime.SetFinalizer(bucket, (*lolrus).Close)
 	return bucket
@@ -291,11 +292,11 @@ func (bucket *lolrus) WriteCas(k string, flags int, exp int, cas uint64, v inter
 	doc := &lolrusDoc{}
 	doc.Sequence = cas
 	doc.Raw = data
-
-	// TODO
-	// hash doc id to get vbno
-	// increment vbcounter to get vbseq
-	// stick those on the doc
+	doc.VbNo = sgbucket.VBHash(k, SimulatedVBucketCount)
+	doc.VbSeq, err = bucket.vbSeqs.Incr(doc.VbNo)
+	if err != nil {
+		return 0, err
+	}
 
 	// Update
 	casOut = bucket.updateDoc(k, doc)

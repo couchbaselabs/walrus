@@ -22,7 +22,7 @@ const kTestPath = "/tmp/lolrus_test_save.walrus"
 func TestSave(t *testing.T) {
 	os.Remove(kTestPath)
 
-	bucket := NewBucket("persisty").(*lolrus)
+	bucket := NewBucket("persisty")
 	defer bucket.Close()
 	bucket.Add("key1", 0, `{"value": 1}`)
 	bucket.AddRaw("key2", 0, []byte("value2"))
