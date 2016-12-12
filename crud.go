@@ -51,11 +51,11 @@ type lolrus struct {
 
 // A document stored in a lolrus's .Docs map
 type lolrusDoc struct {
-	Raw      []byte              // Raw data content, or nil if deleted
-	IsJSON   bool                // Is the data a JSON document?
-	VbNo     sgbucket.VbucketNo  // The vbno (just hash of doc id)
-	VbSeq    sgbucket.VbucketSeq // Vb seq -- only used for doc meta for views
-	Sequence uint64              // Current sequence number assigned
+	Raw      []byte // Raw data content, or nil if deleted
+	IsJSON   bool   // Is the data a JSON document?
+	VbNo     uint32 // The vbno (just hash of doc id)
+	VbSeq    uint64 // Vb seq -- only used for doc meta for views
+	Sequence uint64 // Current sequence number assigned
 }
 
 // Creates a simple in-memory Bucket, suitable only for amusement purposes & testing.

@@ -157,8 +157,8 @@ func (bucket *lolrus) View(docName, viewName string, params map[string]interface
 type jsMapFunctionInput struct {
 	docid string
 	raw   string
-	vbNo  sgbucket.VbucketNo
-	vbSeq sgbucket.VbucketSeq
+	vbNo  uint32
+	vbSeq uint64
 }
 
 // Updates the view index if necessary, and returns it.
