@@ -21,7 +21,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/couchbase/sg-bucket"
+	sgbucket "github.com/couchbase/sg-bucket"
+)
+
+const (
+	SimulatedVBucketCount = 1024 // Used when hashing doc id -> vbno
 )
 
 // The persistent portion of a lolrus object (the stuff that gets archived to disk.)
@@ -40,6 +44,7 @@ type lolrus struct {
 	lastSeqSaved uint64                     // LastSeq at time of last save
 	lock         sync.RWMutex               // For thread-safety
 	views        map[string]lolrusDesignDoc // Stores runtime view/index data
+	vbSeqs       sgbucket.VbucketSeqCounter // Per-vb sequence couner
 	tapFeeds     []*tapFeedImpl
 	lolrusData
 }
@@ -48,12 +53,14 @@ type lolrus struct {
 type lolrusDoc struct {
 	Raw      []byte // Raw data content, or nil if deleted
 	IsJSON   bool   // Is the data a JSON document?
+	VbNo     uint32 // The vbno (just hash of doc id)
+	VbSeq    uint64 // Vb seq -- only used for doc meta for views
 	Sequence uint64 // Current sequence number assigned
 }
 
 // Creates a simple in-memory Bucket, suitable only for amusement purposes & testing.
 // The Bucket is created empty. There is no way to save it persistently.
-func NewBucket(bucketName string) sgbucket.Bucket {
+func NewBucket(bucketName string) *lolrus {
 	logg("NewBucket %s", bucketName)
 	bucket := &lolrus{
 		name: bucketName,
@@ -61,7 +68,8 @@ func NewBucket(bucketName string) sgbucket.Bucket {
 			Docs:       map[string]*lolrusDoc{},
 			DesignDocs: map[string]*sgbucket.DesignDoc{},
 		},
-		views: map[string]lolrusDesignDoc{},
+		vbSeqs: sgbucket.NewMapVbucketSeqCounter(SimulatedVBucketCount),
+		views:  map[string]lolrusDesignDoc{},
 	}
 	runtime.SetFinalizer(bucket, (*lolrus).Close)
 	return bucket
@@ -284,6 +292,11 @@ func (bucket *lolrus) WriteCas(k string, flags int, exp int, cas uint64, v inter
 	doc := &lolrusDoc{}
 	doc.Sequence = cas
 	doc.Raw = data
+	doc.VbNo = sgbucket.VBHash(k, SimulatedVBucketCount)
+	doc.VbSeq, err = bucket.vbSeqs.Incr(doc.VbNo)
+	if err != nil {
+		return 0, err
+	}
 
 	// Update
 	casOut = bucket.updateDoc(k, doc)
@@ -531,7 +544,6 @@ func (bucket *lolrus) Incr(k string, amt, def uint64, exp int) (uint64, error) {
 	return counter, nil
 }
 
-
-func (bucket *lolrus)  Refresh() error {
-	return nil;
+func (bucket *lolrus) Refresh() error {
+	return nil
 }

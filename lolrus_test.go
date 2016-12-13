@@ -252,14 +252,8 @@ func TestGets(t *testing.T) {
 
 func TestWriteCas(t *testing.T) {
 
-	bucket := &lolrus{
-		name: "buckit",
-		lolrusData: lolrusData{
-			Docs:       map[string]*lolrusDoc{},
-			DesignDocs: map[string]*sgbucket.DesignDoc{},
-		},
-		views: map[string]lolrusDesignDoc{},
-	}
+	bucket := NewBucket("buckit")
+
 	defer bucket.Close()
 
 	// Add with WriteCas - JSON docs

@@ -1,6 +1,6 @@
 package walrus
 
-import "github.com/couchbase/sg-bucket"
+import sgbucket "github.com/couchbase/sg-bucket"
 
 type tapFeedImpl struct {
 	bucket  *lolrus
