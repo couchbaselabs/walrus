@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	SimulatedVBucketCount = 4 // Used when hashing doc id -> vbno
+	SimulatedVBucketCount = 1024 // Used when hashing doc id -> vbno
 )
 
 // The persistent portion of a lolrus object (the stuff that gets archived to disk.)
