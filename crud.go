@@ -292,11 +292,6 @@ func (bucket *lolrus) WriteCas(k string, flags int, exp int, cas uint64, v inter
 	doc := &lolrusDoc{}
 	doc.Sequence = cas
 	doc.Raw = data
-	doc.VbNo = sgbucket.VBHash(k, SimulatedVBucketCount)
-	doc.VbSeq, err = bucket.vbSeqs.Incr(doc.VbNo)
-	if err != nil {
-		return 0, err
-	}
 
 	// Update
 	casOut = bucket.updateDoc(k, doc)
@@ -383,6 +378,10 @@ func (bucket *lolrus) write(k string, exp int, raw []byte, opt sgbucket.WriteOpt
 	doc.Raw = raw
 	doc.IsJSON = (opt&(sgbucket.Raw|sgbucket.Append) == 0)
 	doc.Sequence = bucket._nextSequence()
+	err = bucket.SetVbAndSeq(doc, k)
+	if err != nil {
+		return 0, err
+	}
 
 	// Post a TAP notification:
 	if raw != nil {
@@ -491,6 +490,12 @@ func (bucket *lolrus) updateDoc(k string, doc *lolrusDoc) uint64 {
 		return 0
 	}
 	doc.Sequence = bucket._nextSequence()
+
+	err := bucket.SetVbAndSeq(doc, k)
+	if err != nil {
+		return 0
+	}
+
 	bucket.Docs[k] = doc
 	bucket._postTapMutationEvent(k, doc.Raw, doc.Sequence)
 	return doc.Sequence
@@ -546,4 +551,10 @@ func (bucket *lolrus) Incr(k string, amt, def uint64, exp int) (uint64, error) {
 
 func (bucket *lolrus) Refresh() error {
 	return nil
+}
+
+func (bucket *lolrus) SetVbAndSeq(doc *lolrusDoc, k string) (err error) {
+	doc.VbNo = sgbucket.VBHash(k, SimulatedVBucketCount)
+	doc.VbSeq, err = bucket.vbSeqs.Incr(doc.VbNo)
+	return err
 }
