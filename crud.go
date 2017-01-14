@@ -248,8 +248,9 @@ func (bucket *lolrus) GetBulkRaw(keys []string) (map[string][]byte, error) {
 		value, _, err := bucket.GetRaw(key)
 		if err != nil {
 			errs = append(errs, err)
+		} else {
+			result[key] = value
 		}
-		result[key] = value
 	}
 
 	if hadError {
