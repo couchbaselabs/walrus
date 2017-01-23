@@ -292,6 +292,7 @@ func (bucket *lolrus) WriteCas(k string, flags int, exp int, cas uint64, v inter
 	doc := &lolrusDoc{}
 	doc.Sequence = cas
 	doc.Raw = data
+	doc.IsJSON = isJSON
 
 	// Update
 	casOut = bucket.updateDoc(k, doc)
