@@ -45,6 +45,7 @@ func load(path string) (*lolrus, error) {
 	bucket := &lolrus{
 		path:  path,
 		views: map[string]lolrusDesignDoc{},
+		vbSeqs: sgbucket.NewMapVbucketSeqCounter(SimulatedVBucketCount),
 	}
 	decoder := gob.NewDecoder(file)
 	err = decoder.Decode(&bucket.lolrusData)
