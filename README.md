@@ -1,4 +1,3 @@
-[![Build Status](https://drone.io/github.com/couchbaselabs/walrus/status.png)](https://drone.io/github.com/couchbaselabs/walrus/latest)
 [![GoDoc](https://godoc.org/github.com/couchbaselabs/walrus?status.png)](https://godoc.org/github.com/couchbaselabs/walrus)
 
 # Walrus
