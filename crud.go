@@ -322,6 +322,18 @@ func (bucket *lolrus) SetBulk(entries []*sgbucket.BulkSetEntry) (err error) {
 	return nil
 }
 
+func (bucket *lolrus) WriteCasWithXattr(k string, xattr string, flags int, exp int, cas uint64, v interface{}, xv interface{}, opt sgbucket.WriteOptions) (casOut uint64, err error) {
+	return 0, errors.New("WriteCasWithXattr not implemented for walrus")
+}
+
+func (bucket *lolrus) GetWithXattr(k string, xattr string, rv interface{}, xv interface{}) (cas uint64, err error) {
+	return 0, errors.New("GetWithXattr not implemented for walrus")
+}
+
+func (bucket *lolrus) DeleteWithXattr(k string, xattr string) error {
+	return errors.New("DeleteWithXattr not implemented for walrus")
+}
+
 func (bucket *lolrus) getData(v interface{}, isJSON bool) (data []byte, err error) {
 	if !isJSON {
 		if v != nil {
