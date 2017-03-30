@@ -560,3 +560,9 @@ func (bucket *lolrus) SetVbAndSeq(doc *lolrusDoc, k string) (err error) {
 	doc.VbSeq, err = bucket.vbSeqs.Incr(doc.VbNo)
 	return err
 }
+
+func (bucket *lolrus) GetMaxVbno() (uint16, error) {
+	return 1024, nil
+}
+
+
