@@ -569,3 +569,10 @@ func (bucket *lolrus) CouchbaseServerVersion() (major uint64, minor uint64, micr
 	return 0, 0, "error", fmt.Errorf("Walrus bucket has no CouchbaseServerVersion")
 }
 
+func (bucket *lolrus) UUID() (string, error) {
+	return "error", fmt.Errorf("Walrus bucket has no UUID")
+}
+
+
+
+
