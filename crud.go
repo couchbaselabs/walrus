@@ -560,3 +560,19 @@ func (bucket *lolrus) SetVbAndSeq(doc *lolrusDoc, k string) (err error) {
 	doc.VbSeq, err = bucket.vbSeqs.Incr(doc.VbNo)
 	return err
 }
+
+func (bucket *lolrus) GetMaxVbno() (uint16, error) {
+	return 1024, nil
+}
+
+func (bucket *lolrus) CouchbaseServerVersion() (major uint64, minor uint64, micro string, err error) {
+	return 0, 0, "error", fmt.Errorf("Walrus bucket has no CouchbaseServerVersion")
+}
+
+func (bucket *lolrus) UUID() (string, error) {
+	return "error", fmt.Errorf("Walrus bucket has no UUID")
+}
+
+
+
+
