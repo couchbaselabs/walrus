@@ -218,7 +218,7 @@ func TestGetBulkRaw(t *testing.T) {
 
 func TestGets(t *testing.T) {
 
-	bucket := &WalrusBucket{
+	bucket := &Bucket{
 		name: "buckit",
 		lolrusData: lolrusData{
 			Docs:       map[string]*lolrusDoc{},
