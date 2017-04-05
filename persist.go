@@ -14,7 +14,7 @@ import (
 // How long to wait after an in-memory change before saving to disk
 const kSaveInterval = 2 * time.Second
 
-func (bucket *lolrus) _save() error {
+func (bucket *Bucket) _save() error {
 	if bucket.path == "" {
 		return nil
 	}
@@ -25,7 +25,7 @@ func (bucket *lolrus) _save() error {
 	defer os.Remove(file.Name())
 
 	encoder := gob.NewEncoder(file)
-	encoder.Encode(bucket.lolrusData)
+	encoder.Encode(bucket.walrusData)
 	file.Close()
 
 	err = os.Rename(file.Name(), bucket.path)
@@ -35,20 +35,20 @@ func (bucket *lolrus) _save() error {
 	return err
 }
 
-func load(path string) (*lolrus, error) {
+func load(path string) (*Bucket, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	bucket := &lolrus{
+	bucket := &Bucket{
 		path:  path,
-		views: map[string]lolrusDesignDoc{},
+		views: map[string]walrusDesignDoc{},
 		vbSeqs: sgbucket.NewMapVbucketSeqCounter(SimulatedVBucketCount),
 	}
 	decoder := gob.NewDecoder(file)
-	err = decoder.Decode(&bucket.lolrusData)
+	err = decoder.Decode(&bucket.walrusData)
 	if err != nil {
 		logg("Decode error: %v", err)
 		return nil, err
@@ -61,12 +61,12 @@ func load(path string) (*lolrus, error) {
 			return nil, err
 		}
 	}
-	runtime.SetFinalizer(bucket, (*lolrus).Close)
+	runtime.SetFinalizer(bucket, (*Bucket).Close)
 	logg("Loaded bucket from %s", path)
 	return bucket, nil
 }
 
-func loadOrNew(path string, name string) (*lolrus, error) {
+func loadOrNew(path string, name string) (*Bucket, error) {
 	bucket, err := load(path)
 	if os.IsNotExist(err) {
 		bucket = NewBucket(name)
@@ -78,7 +78,7 @@ func loadOrNew(path string, name string) (*lolrus, error) {
 }
 
 // Schedules a save for the near future. MUST be called while holding a write lock!
-func (bucket *lolrus) _saveSoon() {
+func (bucket *Bucket) _saveSoon() {
 	if !bucket.saving && bucket.path != "" {
 		bucket.saving = true
 		go func() {
@@ -101,7 +101,7 @@ func (bucket *lolrus) _saveSoon() {
 // Loads or creates a persistent bucket in the given filesystem directory.
 // The bucket's backing file will be named "bucketName.walrus", or if the poolName is not
 // empty "default", "poolName-bucketName.walrus".
-func NewPersistentBucket(dir, poolName, bucketName string) (sgbucket.Bucket, error) {
+func NewPersistentBucket(dir, poolName, bucketName string) (*Bucket, error) {
 	filename := bucketName + ".walrus"
 	if poolName != "" && poolName != "default" {
 		filename = poolName + "-" + filename
@@ -114,7 +114,7 @@ func NewPersistentBucket(dir, poolName, bucketName string) (sgbucket.Bucket, err
 	return bucket, nil
 }
 
-func (bucket *lolrus) _closePersist() error {
+func (bucket *Bucket) _closePersist() error {
 	if !bucket.saving {
 		return nil
 	}
@@ -122,7 +122,7 @@ func (bucket *lolrus) _closePersist() error {
 	return bucket._save()
 }
 
-func (bucket *lolrus) isSequenceSaved(seq uint64) bool {
+func (bucket *Bucket) isSequenceSaved(seq uint64) bool {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 	return bucket.lastSeqSaved >= seq
