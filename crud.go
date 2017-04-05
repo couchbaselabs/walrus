@@ -28,7 +28,7 @@ const (
 	SimulatedVBucketCount = 1024 // Used when hashing doc id -> vbno
 )
 
-// The persistent portion of a lolrus object (the stuff that gets archived to disk.)
+// The persistent portion of a WalrusBucket object (the stuff that gets archived to disk.)
 type lolrusData struct {
 	LastSeq    uint64                         // Last sequence number assigned
 	Docs       map[string]*lolrusDoc          // Maps doc ID -> lolrusDoc
@@ -37,7 +37,7 @@ type lolrusData struct {
 
 // Simple, inefficient in-memory implementation of Bucket interface.
 // http://ihasabucket.com
-type lolrus struct {
+type WalrusBucket struct {
 	name         string                     // Name of the bucket
 	path         string                     // Filesystem path, if it's persistent
 	saving       bool                       // Is a pending save in progress?
@@ -49,7 +49,7 @@ type lolrus struct {
 	lolrusData
 }
 
-// A document stored in a lolrus's .Docs map
+// A document stored in a WalrusBucket's .Docs map
 type lolrusDoc struct {
 	Raw      []byte // Raw data content, or nil if deleted
 	IsJSON   bool   // Is the data a JSON document?
@@ -60,9 +60,9 @@ type lolrusDoc struct {
 
 // Creates a simple in-memory Bucket, suitable only for amusement purposes & testing.
 // The Bucket is created empty. There is no way to save it persistently.
-func NewBucket(bucketName string) *lolrus {
+func NewBucket(bucketName string) *WalrusBucket {
 	logg("NewBucket %s", bucketName)
-	bucket := &lolrus{
+	bucket := &WalrusBucket{
 		name: bucketName,
 		lolrusData: lolrusData{
 			Docs:       map[string]*lolrusDoc{},
@@ -71,11 +71,11 @@ func NewBucket(bucketName string) *lolrus {
 		vbSeqs: sgbucket.NewMapVbucketSeqCounter(SimulatedVBucketCount),
 		views:  map[string]lolrusDesignDoc{},
 	}
-	runtime.SetFinalizer(bucket, (*lolrus).Close)
+	runtime.SetFinalizer(bucket, (*WalrusBucket).Close)
 	return bucket
 }
 
-var buckets map[[3]string]sgbucket.Bucket
+var buckets map[[3]string]*WalrusBucket
 var bucketsLock sync.Mutex
 
 // Returns a Walrus-based Bucket specific to the given (url, pool, bucketname) tuple.
@@ -93,12 +93,12 @@ var bucketsLock sync.Mutex
 //
 // If the URL isn't considered a directory (e.g. "walrus:" or ""), the bucket will just be
 // created in memory using NewBucket.
-func GetBucket(url, poolName, bucketName string) (sgbucket.Bucket, error) {
+func GetBucket(url, poolName, bucketName string) (*WalrusBucket, error) {
 	bucketsLock.Lock()
 	defer bucketsLock.Unlock()
 
 	if buckets == nil {
-		buckets = make(map[[3]string]sgbucket.Bucket)
+		buckets = make(map[[3]string]*WalrusBucket)
 	}
 	key := [3]string{url, poolName, bucketName}
 	bucket := buckets[key]
@@ -140,22 +140,22 @@ func bucketURLToDir(urlStr string) (dir string) {
 	return
 }
 
-func (bucket *lolrus) VBHash(docID string) uint32 {
+func (bucket *WalrusBucket) VBHash(docID string) uint32 {
 	return 0
 }
 
 // Generates the next sequence number to assign to a document update. (Use only while locked)
-func (bucket *lolrus) _nextSequence() uint64 {
+func (bucket *WalrusBucket) _nextSequence() uint64 {
 	bucket._saveSoon()
 	bucket.LastSeq++
 	return bucket.LastSeq
 }
 
-func (bucket *lolrus) GetName() string {
+func (bucket *WalrusBucket) GetName() string {
 	return bucket.name // name is immutable so this needs no lock
 }
 
-func (bucket *lolrus) Close() {
+func (bucket *WalrusBucket) Close() {
 	// Remove the bucket from the global 'buckets' map:
 	bucketsLock.Lock()
 	defer bucketsLock.Unlock()
@@ -178,7 +178,7 @@ func (bucket *lolrus) Close() {
 	}
 }
 
-func (bucket *lolrus) CloseAndDelete() error {
+func (bucket *WalrusBucket) CloseAndDelete() error {
 	path := bucket.path
 	bucket.Close()
 	if path == "" {
@@ -187,13 +187,13 @@ func (bucket *lolrus) CloseAndDelete() error {
 	return os.Remove(path)
 }
 
-func (bucket *lolrus) assertNotClosed() {
+func (bucket *WalrusBucket) assertNotClosed() {
 	if bucket.Docs == nil {
 		panic(fmt.Sprintf("Accessing closed Walrus bucket %q", bucket.name))
 	}
 }
 
-func (bucket *lolrus) missingError(key string) error {
+func (bucket *WalrusBucket) missingError(key string) error {
 	bucket.assertNotClosed()
 	return sgbucket.MissingError{key}
 }
@@ -210,7 +210,7 @@ func copySlice(slice []byte) []byte {
 }
 
 // Private version of GetRaw returns an uncopied slice.
-func (bucket *lolrus) getRaw(k string) ([]byte, uint64, error) {
+func (bucket *WalrusBucket) getRaw(k string) ([]byte, uint64, error) {
 	bucket.lock.RLock()
 	defer bucket.lock.RUnlock()
 
@@ -221,17 +221,17 @@ func (bucket *lolrus) getRaw(k string) ([]byte, uint64, error) {
 	return copySlice(doc.Raw), doc.Sequence, nil
 }
 
-func (bucket *lolrus) GetRaw(k string) (rv []byte, cas uint64, err error) {
+func (bucket *WalrusBucket) GetRaw(k string) (rv []byte, cas uint64, err error) {
 	raw, cas, err := bucket.getRaw(k)
 	return copySlice(raw), cas, err // Public API returns copied slice to avoid client altering doc
 }
 
-func (bucket *lolrus) GetAndTouchRaw(k string, exp int) (rv []byte, cas uint64, err error) {
+func (bucket *WalrusBucket) GetAndTouchRaw(k string, exp int) (rv []byte, cas uint64, err error) {
 	// Until walrus supports expiry, the exp value is ignored
 	return bucket.GetRaw(k)
 }
 
-func (bucket *lolrus) Get(k string, rv interface{}) (cas uint64, err error) {
+func (bucket *WalrusBucket) Get(k string, rv interface{}) (cas uint64, err error) {
 	raw, cas, err := bucket.getRaw(k)
 	if err != nil {
 		return 0, err
@@ -239,7 +239,7 @@ func (bucket *lolrus) Get(k string, rv interface{}) (cas uint64, err error) {
 	return cas, json.Unmarshal(raw, rv)
 }
 
-func (bucket *lolrus) GetBulkRaw(keys []string) (map[string][]byte, error) {
+func (bucket *WalrusBucket) GetBulkRaw(keys []string) (map[string][]byte, error) {
 	result := make(map[string][]byte)
 	errs := multiError{}
 	hadError := false
@@ -263,7 +263,7 @@ func (bucket *lolrus) GetBulkRaw(keys []string) (map[string][]byte, error) {
 
 //////// WRITE:
 
-func (bucket *lolrus) Write(k string, flags int, exp int, v interface{}, opt sgbucket.WriteOptions) (err error) {
+func (bucket *WalrusBucket) Write(k string, flags int, exp int, v interface{}, opt sgbucket.WriteOptions) (err error) {
 	// Marshal JSON if the value is not raw:
 	isJSON := (opt&sgbucket.Raw == 0)
 	data, err := bucket.getData(v, isJSON)
@@ -281,7 +281,7 @@ func (bucket *lolrus) Write(k string, flags int, exp int, v interface{}, opt sgb
 	return bucket.waitAfterWrite(seq, opt)
 }
 
-func (bucket *lolrus) WriteCas(k string, flags int, exp int, cas uint64, v interface{}, opt sgbucket.WriteOptions) (casOut uint64, err error) {
+func (bucket *WalrusBucket) WriteCas(k string, flags int, exp int, cas uint64, v interface{}, opt sgbucket.WriteOptions) (casOut uint64, err error) {
 
 	// Marshal JSON if the value is not raw:
 	isJSON := (opt&sgbucket.Raw == 0)
@@ -306,7 +306,7 @@ func (bucket *lolrus) WriteCas(k string, flags int, exp int, cas uint64, v inter
 	return casOut, err
 }
 
-func (bucket *lolrus) SetBulk(entries []*sgbucket.BulkSetEntry) (err error) {
+func (bucket *WalrusBucket) SetBulk(entries []*sgbucket.BulkSetEntry) (err error) {
 	for _, entry := range entries {
 		casOut, err := bucket.WriteCas(
 			entry.Key,
@@ -322,23 +322,24 @@ func (bucket *lolrus) SetBulk(entries []*sgbucket.BulkSetEntry) (err error) {
 	return nil
 }
 
-func (bucket *lolrus) WriteCasWithXattr(k string, xattrKey string, exp int, cas uint64, v interface{}, xv interface{}) (casOut uint64, err error) {
+func (bucket *WalrusBucket) WriteCasWithXattr(k string, xattrKey string, exp int, cas uint64, v interface{}, xv interface{}) (casOut uint64, err error) {
 	return 0, errors.New("WriteCasWithXattr not implemented for walrus")
 }
 
-func (bucket *lolrus) GetWithXattr(k string, xattrKey string, rv interface{}, xv interface{}) (cas uint64, err error) {
+func (bucket *WalrusBucket) GetWithXattr(k string, xattrKey string, rv interface{}, xv interface{}) (cas uint64, err error) {
 	return 0, errors.New("GetWithXattr not implemented for walrus")
 }
 
-func (bucket *lolrus) DeleteWithXattr(k string, xattrKey string) error {
+func (bucket *WalrusBucket) DeleteWithXattr(k string, xattrKey string) error {
 	return errors.New("DeleteWithXattr not implemented for walrus")
 }
 
-func (bucket *lolrus) WriteUpdateWithXattr(k string, xattrKey string, exp int, callback sgbucket.WriteUpdateWithXattrFunc) error {
+func (bucket *WalrusBucket) WriteUpdateWithXattr(k string, xattrKey string, exp int, callback sgbucket.WriteUpdateWithXattrFunc) error {
 	return errors.New("WriteUpdateWithXattr not implemented for walrus")
 }
 
-func (bucket *lolrus) getData(v interface{}, isJSON bool) (data []byte, err error) {
+
+func (bucket *WalrusBucket) getData(v interface{}, isJSON bool) (data []byte, err error) {
 	if !isJSON {
 		if v != nil {
 			data = copySlice(v.([]byte))
@@ -350,7 +351,7 @@ func (bucket *lolrus) getData(v interface{}, isJSON bool) (data []byte, err erro
 }
 
 // Waits until the given sequence has been persisted or made indexable.
-func (bucket *lolrus) waitAfterWrite(seq uint64, opt sgbucket.WriteOptions) error {
+func (bucket *WalrusBucket) waitAfterWrite(seq uint64, opt sgbucket.WriteOptions) error {
 	// This method ignores the Indexable option because all writes are immediately indexable.
 	if opt&sgbucket.Persist != 0 {
 		if bucket.path == "" {
@@ -369,7 +370,7 @@ func (bucket *lolrus) waitAfterWrite(seq uint64, opt sgbucket.WriteOptions) erro
 	return nil
 }
 
-func (bucket *lolrus) write(k string, exp int, raw []byte, opt sgbucket.WriteOptions) (seq uint64, err error) {
+func (bucket *WalrusBucket) write(k string, exp int, raw []byte, opt sgbucket.WriteOptions) (seq uint64, err error) {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
@@ -413,7 +414,7 @@ func (bucket *lolrus) write(k string, exp int, raw []byte, opt sgbucket.WriteOpt
 
 //////// ADD / SET / DELETE:
 
-func (bucket *lolrus) add(k string, exp int, v interface{}, opt sgbucket.WriteOptions) (added bool, err error) {
+func (bucket *WalrusBucket) add(k string, exp int, v interface{}, opt sgbucket.WriteOptions) (added bool, err error) {
 	err = bucket.Write(k, 0, exp, v, opt|sgbucket.AddOnly)
 	if err == sgbucket.ErrKeyExists {
 		return false, nil
@@ -421,33 +422,33 @@ func (bucket *lolrus) add(k string, exp int, v interface{}, opt sgbucket.WriteOp
 	return (err == nil), err
 }
 
-func (bucket *lolrus) AddRaw(k string, exp int, v []byte) (added bool, err error) {
+func (bucket *WalrusBucket) AddRaw(k string, exp int, v []byte) (added bool, err error) {
 	if v == nil {
 		panic("nil value")
 	}
 	return bucket.add(k, exp, v, sgbucket.Raw)
 }
 
-func (bucket *lolrus) Add(k string, exp int, v interface{}) (added bool, err error) {
+func (bucket *WalrusBucket) Add(k string, exp int, v interface{}) (added bool, err error) {
 	return bucket.add(k, exp, v, 0)
 }
 
-func (bucket *lolrus) SetRaw(k string, exp int, v []byte) error {
+func (bucket *WalrusBucket) SetRaw(k string, exp int, v []byte) error {
 	if v == nil {
 		panic("nil value")
 	}
 	return bucket.Write(k, 0, exp, v, sgbucket.Raw)
 }
 
-func (bucket *lolrus) Set(k string, exp int, v interface{}) error {
+func (bucket *WalrusBucket) Set(k string, exp int, v interface{}) error {
 	return bucket.Write(k, 0, exp, v, 0)
 }
 
-func (bucket *lolrus) Delete(k string) error {
+func (bucket *WalrusBucket) Delete(k string) error {
 	return bucket.Write(k, 0, 0, nil, sgbucket.Raw)
 }
 
-func (bucket *lolrus) Append(k string, data []byte) error {
+func (bucket *WalrusBucket) Append(k string, data []byte) error {
 	if data == nil {
 		panic("nil value")
 	}
@@ -456,7 +457,7 @@ func (bucket *lolrus) Append(k string, data []byte) error {
 
 //////// UPDATE:
 
-func (bucket *lolrus) WriteUpdate(k string, exp int, callback sgbucket.WriteUpdateFunc) error {
+func (bucket *WalrusBucket) WriteUpdate(k string, exp int, callback sgbucket.WriteUpdateFunc) error {
 	var err error
 	var opts sgbucket.WriteOptions
 	var seq uint64
@@ -474,7 +475,7 @@ func (bucket *lolrus) WriteUpdate(k string, exp int, callback sgbucket.WriteUpda
 	return bucket.waitAfterWrite(seq, opts)
 }
 
-func (bucket *lolrus) Update(k string, exp int, callback sgbucket.UpdateFunc) error {
+func (bucket *WalrusBucket) Update(k string, exp int, callback sgbucket.UpdateFunc) error {
 	writeCallback := func(current []byte) (updated []byte, opts sgbucket.WriteOptions, err error) {
 		updated, err = callback(current)
 		return
@@ -483,7 +484,7 @@ func (bucket *lolrus) Update(k string, exp int, callback sgbucket.UpdateFunc) er
 }
 
 // Looks up a lolrusDoc and returns a copy of it, or an empty doc if one doesn't exist yet
-func (bucket *lolrus) getDoc(k string) lolrusDoc {
+func (bucket *WalrusBucket) getDoc(k string) lolrusDoc {
 	bucket.lock.RLock()
 	defer bucket.lock.RUnlock()
 
@@ -496,7 +497,7 @@ func (bucket *lolrus) getDoc(k string) lolrusDoc {
 }
 
 // Replaces a lolrusDoc as long as its sequence number hasn't changed yet. (Used by Update)
-func (bucket *lolrus) updateDoc(k string, doc *lolrusDoc) uint64 {
+func (bucket *WalrusBucket) updateDoc(k string, doc *lolrusDoc) uint64 {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
@@ -521,7 +522,7 @@ func (bucket *lolrus) updateDoc(k string, doc *lolrusDoc) uint64 {
 
 //////// INCR:
 
-func (bucket *lolrus) Incr(k string, amt, def uint64, exp int) (uint64, error) {
+func (bucket *WalrusBucket) Incr(k string, amt, def uint64, exp int) (uint64, error) {
 	// Potential concurrency issue if using RLock when amt=0 - can turn into a write if
 	// the key doesn't exist and so gets initialized to def.  Switching to a hard write lock
 	// for all operations for the time being - could be refactored back to read-then-write, but
@@ -567,24 +568,24 @@ func (bucket *lolrus) Incr(k string, amt, def uint64, exp int) (uint64, error) {
 	return counter, nil
 }
 
-func (bucket *lolrus) Refresh() error {
+func (bucket *WalrusBucket) Refresh() error {
 	return nil
 }
 
-func (bucket *lolrus) SetVbAndSeq(doc *lolrusDoc, k string) (err error) {
+func (bucket *WalrusBucket) SetVbAndSeq(doc *lolrusDoc, k string) (err error) {
 	doc.VbNo = sgbucket.VBHash(k, SimulatedVBucketCount)
 	doc.VbSeq, err = bucket.vbSeqs.Incr(doc.VbNo)
 	return err
 }
 
-func (bucket *lolrus) GetMaxVbno() (uint16, error) {
+func (bucket *WalrusBucket) GetMaxVbno() (uint16, error) {
 	return 1024, nil
 }
 
-func (bucket *lolrus) CouchbaseServerVersion() (major uint64, minor uint64, micro string, err error) {
+func (bucket *WalrusBucket) CouchbaseServerVersion() (major uint64, minor uint64, micro string, err error) {
 	return 0, 0, "error", fmt.Errorf("Walrus bucket has no CouchbaseServerVersion")
 }
 
-func (bucket *lolrus) UUID() (string, error) {
+func (bucket *WalrusBucket) UUID() (string, error) {
 	return "error", fmt.Errorf("Walrus bucket has no UUID")
 }

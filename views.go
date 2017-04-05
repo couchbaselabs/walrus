@@ -11,7 +11,7 @@ import (
 	sgbucket "github.com/couchbase/sg-bucket"
 )
 
-// A single view stored in a lolrus.
+// A single view stored in a WalrusBucket.
 type lolrusView struct {
 	mapFunction         *sgbucket.JSMapFunction // The compiled map function
 	reduceFunction      string                  // The source of the reduce function (if any)
@@ -19,10 +19,10 @@ type lolrusView struct {
 	lastIndexedSequence uint64                  // Bucket's lastSeq at the time the index was built
 }
 
-// Stores view functions for use by a lolrus.
+// Stores view functions for use by a WalrusBucket.
 type lolrusDesignDoc map[string]*lolrusView
 
-func (bucket *lolrus) GetDDoc(docname string, into interface{}) error {
+func (bucket *WalrusBucket) GetDDoc(docname string, into interface{}) error {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
@@ -35,7 +35,7 @@ func (bucket *lolrus) GetDDoc(docname string, into interface{}) error {
 	return json.Unmarshal(raw, into)
 }
 
-func (bucket *lolrus) PutDDoc(docname string, value interface{}) error {
+func (bucket *WalrusBucket) PutDDoc(docname string, value interface{}) error {
 	design, err := CheckDDoc(value)
 	if err != nil {
 		return err
@@ -58,7 +58,7 @@ func (bucket *lolrus) PutDDoc(docname string, value interface{}) error {
 	return nil
 }
 
-func (bucket *lolrus) DeleteDDoc(docname string) error {
+func (bucket *WalrusBucket) DeleteDDoc(docname string) error {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
@@ -70,7 +70,7 @@ func (bucket *lolrus) DeleteDDoc(docname string) error {
 	return nil
 }
 
-func (bucket *lolrus) _compileDesignDoc(docname string, design *sgbucket.DesignDoc) error {
+func (bucket *WalrusBucket) _compileDesignDoc(docname string, design *sgbucket.DesignDoc) error {
 	if design == nil {
 		return nil
 	}
@@ -108,7 +108,7 @@ func CheckDDoc(value interface{}) (*sgbucket.DesignDoc, error) {
 }
 
 // Looks up a lolrusView, and its current index if it's up-to-date enough.
-func (bucket *lolrus) findView(docName, viewName string, staleOK bool) (view *lolrusView, result *sgbucket.ViewResult) {
+func (bucket *WalrusBucket) findView(docName, viewName string, staleOK bool) (view *lolrusView, result *sgbucket.ViewResult) {
 	bucket.lock.RLock()
 	defer bucket.lock.RUnlock()
 
@@ -129,7 +129,7 @@ func (bucket *lolrus) findView(docName, viewName string, staleOK bool) (view *lo
 	return
 }
 
-func (bucket *lolrus) View(docName, viewName string, params map[string]interface{}) (sgbucket.ViewResult, error) {
+func (bucket *WalrusBucket) View(docName, viewName string, params map[string]interface{}) (sgbucket.ViewResult, error) {
 	// Note: This method itself doesn't lock, so it shouldn't access bucket fields directly.
 	logg("View(%q, %q) ...", docName, viewName)
 
@@ -162,7 +162,7 @@ type jsMapFunctionInput struct {
 }
 
 // Updates the view index if necessary, and returns it.
-func (bucket *lolrus) updateView(view *lolrusView, toSequence uint64) sgbucket.ViewResult {
+func (bucket *WalrusBucket) updateView(view *lolrusView, toSequence uint64) sgbucket.ViewResult {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
@@ -261,7 +261,7 @@ func (bucket *lolrus) updateView(view *lolrusView, toSequence uint64) sgbucket.V
 	return view.index
 }
 
-func (bucket *lolrus) ViewCustom(ddoc, name string, params map[string]interface{}, vres interface{}) error {
+func (bucket *WalrusBucket) ViewCustom(ddoc, name string, params map[string]interface{}, vres interface{}) error {
 	result, err := bucket.View(ddoc, name, params)
 	if err != nil {
 		return err
@@ -272,7 +272,7 @@ func (bucket *lolrus) ViewCustom(ddoc, name string, params map[string]interface{
 
 //////// DUMP:
 
-func (bucket *lolrus) _sortedKeys() []string {
+func (bucket *WalrusBucket) _sortedKeys() []string {
 	keys := make([]string, 0, len(bucket.Docs))
 	for key, _ := range bucket.Docs {
 		keys = append(keys, key)
@@ -281,7 +281,7 @@ func (bucket *lolrus) _sortedKeys() []string {
 	return keys
 }
 
-func (bucket *lolrus) Dump() {
+func (bucket *WalrusBucket) Dump() {
 	bucket.lock.RLock()
 	defer bucket.lock.RUnlock()
 	fmt.Printf("==== Walrus bucket %q\n", bucket.name)

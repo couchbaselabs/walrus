@@ -84,13 +84,13 @@ func TestNewPersistentBucket(t *testing.T) {
 	os.Remove("/tmp/pool-buckit.walrus")
 	bucket, err := GetBucket("walrus:/tmp", "pool", "buckit")
 	assertNoError(t, err, "NewPersistentBucket failed")
-	assert.Equals(t, bucket.(*lolrus).path, "/tmp/pool-buckit.walrus")
-	bucket.(*lolrus).Close()
+	assert.Equals(t, bucket.(*WalrusBucket).path, "/tmp/pool-buckit.walrus")
+	bucket.(*WalrusBucket).Close()
 
 	bucket, err = GetBucket("./temp", "default", "buckit")
 	assertNoError(t, err, "NewPersistentBucket failed")
-	assert.Equals(t, bucket.(*lolrus).path, "temp/buckit.walrus")
-	bucket.(*lolrus).Close()
+	assert.Equals(t, bucket.(*WalrusBucket).path, "temp/buckit.walrus")
+	bucket.(*WalrusBucket).Close()
 }
 
 func TestWriteWithPersist(t *testing.T) {
@@ -101,7 +101,7 @@ func TestWriteWithPersist(t *testing.T) {
 	assertNoError(t, bucket.Write("key1", 0, 0, []byte("value1"), sgbucket.Raw|sgbucket.Persist), "Write failed")
 
 	// Load the file into a new bucket to make sure the value got saved to disk:
-	bucket2, err := load(bucket.(*lolrus).path)
+	bucket2, err := load(bucket.(*WalrusBucket).path)
 	value, _, err := bucket2.GetRaw("key1")
 	assertNoError(t, err, "Get failed")
 	assert.Equals(t, string(value), "value1")
