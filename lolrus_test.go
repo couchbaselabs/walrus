@@ -220,11 +220,11 @@ func TestGets(t *testing.T) {
 
 	bucket := &Bucket{
 		name: "buckit",
-		lolrusData: lolrusData{
-			Docs:       map[string]*lolrusDoc{},
+		walrusData: walrusData{
+			Docs:       map[string]*walrusDoc{},
 			DesignDocs: map[string]*sgbucket.DesignDoc{},
 		},
-		views: map[string]lolrusDesignDoc{},
+		views: map[string]walrusDesignDoc{},
 	}
 	defer bucket.Close()
 

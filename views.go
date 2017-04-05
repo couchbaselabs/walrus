@@ -12,7 +12,7 @@ import (
 )
 
 // A single view stored in a Bucket.
-type lolrusView struct {
+type walrusView struct {
 	mapFunction         *sgbucket.JSMapFunction // The compiled map function
 	reduceFunction      string                  // The source of the reduce function (if any)
 	index               sgbucket.ViewResult     // The latest complete result
@@ -20,7 +20,7 @@ type lolrusView struct {
 }
 
 // Stores view functions for use by a Bucket.
-type lolrusDesignDoc map[string]*lolrusView
+type walrusDesignDoc map[string]*walrusView
 
 func (bucket *Bucket) GetDDoc(docname string, into interface{}) error {
 	bucket.lock.Lock()
@@ -74,10 +74,10 @@ func (bucket *Bucket) _compileDesignDoc(docname string, design *sgbucket.DesignD
 	if design == nil {
 		return nil
 	}
-	ddoc := lolrusDesignDoc{}
+	ddoc := walrusDesignDoc{}
 	for name, fns := range design.Views {
 		jsserver := sgbucket.NewJSMapFunction(fns.Map)
-		view := &lolrusView{
+		view := &walrusView{
 			mapFunction:    jsserver,
 			reduceFunction: fns.Reduce,
 		}
@@ -100,15 +100,15 @@ func CheckDDoc(value interface{}) (*sgbucket.DesignDoc, error) {
 	}
 
 	if design.Language != "" && design.Language != "javascript" {
-		return nil, fmt.Errorf("Lolrus design docs don't support language %q",
+		return nil, fmt.Errorf("Walrus design docs don't support language %q",
 			design.Language)
 	}
 
 	return &design, nil
 }
 
-// Looks up a lolrusView, and its current index if it's up-to-date enough.
-func (bucket *Bucket) findView(docName, viewName string, staleOK bool) (view *lolrusView, result *sgbucket.ViewResult) {
+// Looks up a walrusView, and its current index if it's up-to-date enough.
+func (bucket *Bucket) findView(docName, viewName string, staleOK bool) (view *walrusView, result *sgbucket.ViewResult) {
 	bucket.lock.RLock()
 	defer bucket.lock.RUnlock()
 
@@ -162,7 +162,7 @@ type jsMapFunctionInput struct {
 }
 
 // Updates the view index if necessary, and returns it.
-func (bucket *Bucket) updateView(view *lolrusView, toSequence uint64) sgbucket.ViewResult {
+func (bucket *Bucket) updateView(view *walrusView, toSequence uint64) sgbucket.ViewResult {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 

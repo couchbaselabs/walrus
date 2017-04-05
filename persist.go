@@ -25,7 +25,7 @@ func (bucket *Bucket) _save() error {
 	defer os.Remove(file.Name())
 
 	encoder := gob.NewEncoder(file)
-	encoder.Encode(bucket.lolrusData)
+	encoder.Encode(bucket.walrusData)
 	file.Close()
 
 	err = os.Rename(file.Name(), bucket.path)
@@ -44,11 +44,11 @@ func load(path string) (*Bucket, error) {
 
 	bucket := &Bucket{
 		path:  path,
-		views: map[string]lolrusDesignDoc{},
+		views: map[string]walrusDesignDoc{},
 		vbSeqs: sgbucket.NewMapVbucketSeqCounter(SimulatedVBucketCount),
 	}
 	decoder := gob.NewDecoder(file)
-	err = decoder.Decode(&bucket.lolrusData)
+	err = decoder.Decode(&bucket.walrusData)
 	if err != nil {
 		logg("Decode error: %v", err)
 		return nil, err

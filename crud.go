@@ -29,9 +29,9 @@ const (
 )
 
 // The persistent portion of a Bucket object (the stuff that gets archived to disk.)
-type lolrusData struct {
+type walrusData struct {
 	LastSeq    uint64                         // Last sequence number assigned
-	Docs       map[string]*lolrusDoc          // Maps doc ID -> lolrusDoc
+	Docs       map[string]*walrusDoc          // Maps doc ID -> walrusDoc
 	DesignDocs map[string]*sgbucket.DesignDoc // Stores source form of design docs
 }
 
@@ -43,14 +43,14 @@ type Bucket struct {
 	saving       bool                       // Is a pending save in progress?
 	lastSeqSaved uint64                     // LastSeq at time of last save
 	lock         sync.RWMutex               // For thread-safety
-	views        map[string]lolrusDesignDoc // Stores runtime view/index data
+	views        map[string]walrusDesignDoc // Stores runtime view/index data
 	vbSeqs       sgbucket.VbucketSeqCounter // Per-vb sequence couner
 	tapFeeds     []*tapFeedImpl
-	lolrusData
+	walrusData
 }
 
 // A document stored in a Bucket's .Docs map
-type lolrusDoc struct {
+type walrusDoc struct {
 	Raw      []byte // Raw data content, or nil if deleted
 	IsJSON   bool   // Is the data a JSON document?
 	VbNo     uint32 // The vbno (just hash of doc id)
@@ -64,12 +64,12 @@ func NewBucket(bucketName string) *Bucket {
 	logg("NewBucket %s", bucketName)
 	bucket := &Bucket{
 		name: bucketName,
-		lolrusData: lolrusData{
-			Docs:       map[string]*lolrusDoc{},
+		walrusData: walrusData{
+			Docs:       map[string]*walrusDoc{},
 			DesignDocs: map[string]*sgbucket.DesignDoc{},
 		},
 		vbSeqs: sgbucket.NewMapVbucketSeqCounter(SimulatedVBucketCount),
-		views:  map[string]lolrusDesignDoc{},
+		views:  map[string]walrusDesignDoc{},
 	}
 	runtime.SetFinalizer(bucket, (*Bucket).Close)
 	return bucket
@@ -290,7 +290,7 @@ func (bucket *Bucket) WriteCas(k string, flags int, exp int, cas uint64, v inter
 		return 0, err
 	}
 
-	doc := &lolrusDoc{}
+	doc := &walrusDoc{}
 	doc.Sequence = cas
 	doc.Raw = data
 	doc.IsJSON = isJSON
@@ -379,7 +379,7 @@ func (bucket *Bucket) write(k string, exp int, raw []byte, opt sgbucket.WriteOpt
 		if raw == nil || opt&sgbucket.Append != 0 {
 			return 0, bucket.missingError(k)
 		}
-		doc = &lolrusDoc{}
+		doc = &walrusDoc{}
 		bucket.Docs[k] = doc
 	} else if doc.Raw == nil {
 		if raw == nil || opt&sgbucket.Append != 0 {
@@ -461,7 +461,7 @@ func (bucket *Bucket) WriteUpdate(k string, exp int, callback sgbucket.WriteUpda
 	var opts sgbucket.WriteOptions
 	var seq uint64
 	for {
-		var doc lolrusDoc = bucket.getDoc(k)
+		var doc walrusDoc = bucket.getDoc(k)
 		doc.Raw, opts, err = callback(copySlice(doc.Raw))
 		doc.IsJSON = doc.Raw != nil && ((opts & sgbucket.Raw) == 0)
 		if err != nil {
@@ -482,21 +482,21 @@ func (bucket *Bucket) Update(k string, exp int, callback sgbucket.UpdateFunc) er
 	return bucket.WriteUpdate(k, exp, writeCallback)
 }
 
-// Looks up a lolrusDoc and returns a copy of it, or an empty doc if one doesn't exist yet
-func (bucket *Bucket) getDoc(k string) lolrusDoc {
+// Looks up a walrusDoc and returns a copy of it, or an empty doc if one doesn't exist yet
+func (bucket *Bucket) getDoc(k string) walrusDoc {
 	bucket.lock.RLock()
 	defer bucket.lock.RUnlock()
 
 	docPtr := bucket.Docs[k]
 	if docPtr == nil {
 		bucket.assertNotClosed()
-		return lolrusDoc{}
+		return walrusDoc{}
 	}
 	return *docPtr
 }
 
-// Replaces a lolrusDoc as long as its sequence number hasn't changed yet. (Used by Update)
-func (bucket *Bucket) updateDoc(k string, doc *lolrusDoc) uint64 {
+// Replaces a walrusDoc as long as its sequence number hasn't changed yet. (Used by Update)
+func (bucket *Bucket) updateDoc(k string, doc *walrusDoc) uint64 {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
@@ -557,7 +557,7 @@ func (bucket *Bucket) Incr(k string, amt, def uint64, exp int) (uint64, error) {
 		}
 		counter = def
 	}
-	doc = &lolrusDoc{
+	doc = &walrusDoc{
 		Raw:      []byte(strconv.FormatUint(counter, 10)),
 		IsJSON:   false,
 		Sequence: bucket._nextSequence(),
@@ -571,7 +571,7 @@ func (bucket *Bucket) Refresh() error {
 	return nil
 }
 
-func (bucket *Bucket) SetVbAndSeq(doc *lolrusDoc, k string) (err error) {
+func (bucket *Bucket) SetVbAndSeq(doc *walrusDoc, k string) (err error) {
 	doc.VbNo = sgbucket.VBHash(k, SimulatedVBucketCount)
 	doc.VbSeq, err = bucket.vbSeqs.Incr(doc.VbNo)
 	return err

@@ -17,7 +17,7 @@ import (
 	"github.com/couchbaselabs/go.assert"
 )
 
-const kTestPath = "/tmp/lolrus_test_save.walrus"
+const kTestPath = "/tmp/walrus_test_save.walrus"
 
 func TestSave(t *testing.T) {
 	os.Remove(kTestPath)
@@ -32,7 +32,7 @@ func TestSave(t *testing.T) {
 
 	bucket2, err := load(kTestPath)
 	assertNoError(t, err, "couldn't load")
-	assert.DeepEquals(t, bucket2.lolrusData, bucket.lolrusData)
+	assert.DeepEquals(t, bucket2.walrusData, bucket.walrusData)
 
 	bucket.Set("key2", 0, []byte("NEWVALUE2"))
 
@@ -42,7 +42,7 @@ func TestSave(t *testing.T) {
 	bucket2, err = load(kTestPath)
 	defer bucket2.Close()
 	assertNoError(t, err, "couldn't re-load")
-	assert.DeepEquals(t, bucket2.lolrusData, bucket.lolrusData)
+	assert.DeepEquals(t, bucket2.walrusData, bucket.walrusData)
 }
 
 func TestLoadOrNew(t *testing.T) {
@@ -50,16 +50,16 @@ func TestLoadOrNew(t *testing.T) {
 	bucket, err := load(kTestPath)
 	assertTrue(t, os.IsNotExist(err), "Unexpected error")
 
-	bucket, err = loadOrNew(kTestPath, "lolrus_test_loadOrNew")
+	bucket, err = loadOrNew(kTestPath, "walrus_test_loadOrNew")
 	assertNoError(t, err, "loadOrNew failed")
 	assert.Equals(t, len(bucket.Docs), 0)
 
 	bucket.Add("key9", 0, `{"value": 9}`)
 	bucket.Close()
 
-	bucket, err = loadOrNew(kTestPath, "lolrus_test_loadOrNew")
+	bucket, err = loadOrNew(kTestPath, "walrus_test_loadOrNew")
 	assertNoError(t, err, "loadOrNew #2 failed")
-	assert.DeepEquals(t, bucket.lolrusData, bucket.lolrusData)
+	assert.DeepEquals(t, bucket.walrusData, bucket.walrusData)
 	bucket.Close()
 }
 
