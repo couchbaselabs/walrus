@@ -322,19 +322,19 @@ func (bucket *lolrus) SetBulk(entries []*sgbucket.BulkSetEntry) (err error) {
 	return nil
 }
 
-func (bucket *lolrus) WriteCasWithXattr(k string, xattr string, exp int, cas uint64, v interface{}, xv interface{}) (casOut uint64, err error) {
+func (bucket *lolrus) WriteCasWithXattr(k string, xattrKey string, exp int, cas uint64, v interface{}, xv interface{}) (casOut uint64, err error) {
 	return 0, errors.New("WriteCasWithXattr not implemented for walrus")
 }
 
-func (bucket *lolrus) GetWithXattr(k string, xattr string, rv interface{}, xv interface{}) (cas uint64, err error) {
+func (bucket *lolrus) GetWithXattr(k string, xattrKey string, rv interface{}, xv interface{}) (cas uint64, err error) {
 	return 0, errors.New("GetWithXattr not implemented for walrus")
 }
 
-func (bucket *lolrus) DeleteWithXattr(k string, xattr string) error {
+func (bucket *lolrus) DeleteWithXattr(k string, xattrKey string) error {
 	return errors.New("DeleteWithXattr not implemented for walrus")
 }
 
-func (bucket *lolrus) WriteUpdateWithXattr(k string, xattr string, exp int, callback sgbucket.WriteUpdateWithXattrFunc) error {
+func (bucket *lolrus) WriteUpdateWithXattr(k string, xattrKey string, exp int, callback sgbucket.WriteUpdateWithXattrFunc) error {
 	return errors.New("WriteUpdateWithXattr not implemented for walrus")
 }
 
@@ -588,7 +588,3 @@ func (bucket *lolrus) CouchbaseServerVersion() (major uint64, minor uint64, micr
 func (bucket *lolrus) UUID() (string, error) {
 	return "error", fmt.Errorf("Walrus bucket has no UUID")
 }
-
-
-
-
