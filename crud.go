@@ -306,6 +306,20 @@ func (bucket *lolrus) WriteCas(k string, flags int, exp int, cas uint64, v inter
 	return casOut, err
 }
 
+func (bucket *lolrus) Remove(k string, cas uint64) (casOut uint64, err error) {
+
+	doc := &lolrusDoc{}
+	doc.Sequence = cas
+	doc.Raw = nil
+	doc.IsJSON = false
+
+	casOut = bucket.updateDoc(k, doc)
+	if casOut == 0 {
+		return casOut, errors.New("CAS mismatch")
+	}
+	return casOut, nil
+}
+
 func (bucket *lolrus) SetBulk(entries []*sgbucket.BulkSetEntry) (err error) {
 	for _, entry := range entries {
 		casOut, err := bucket.WriteCas(
@@ -515,7 +529,12 @@ func (bucket *lolrus) updateDoc(k string, doc *lolrusDoc) uint64 {
 	}
 
 	bucket.Docs[k] = doc
-	bucket._postTapMutationEvent(k, doc.Raw, doc.Sequence)
+	if doc.Raw != nil {
+		bucket._postTapMutationEvent(k, doc.Raw, doc.Sequence)
+	} else {
+		bucket._postTapDeletionEvent(k, doc.Sequence)
+	}
+
 	return doc.Sequence
 }
 
