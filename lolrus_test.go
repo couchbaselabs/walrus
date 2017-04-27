@@ -218,14 +218,7 @@ func TestGetBulkRaw(t *testing.T) {
 
 func TestGets(t *testing.T) {
 
-	bucket := &lolrus{
-		name: "buckit",
-		lolrusData: lolrusData{
-			Docs:       map[string]*lolrusDoc{},
-			DesignDocs: map[string]*sgbucket.DesignDoc{},
-		},
-		views: map[string]lolrusDesignDoc{},
-	}
+	bucket := NewBucket("buckit")
 	defer bucket.Close()
 
 	// Gets (JSON)
@@ -307,10 +300,47 @@ func TestWriteCas(t *testing.T) {
 	assert.DeepEquals(t, value, []byte("value2"))
 	assert.Equals(t, getCas, newCas)
 
-	// Update document with obsolete case value
+	// Update document with obsolete cas value
 	newCas, err = bucket.WriteCas("keyraw1", 0, 0, cas, []byte("value3"), sgbucket.Raw)
 	assertTrue(t, err != nil, "Invalid cas should have returned error.")
 	assert.Equals(t, newCas, uint64(0))
+}
+
+func TestRemove(t *testing.T) {
+
+	bucket := NewBucket("buckit")
+
+	defer bucket.Close()
+
+	// Add with WriteCas - JSON docs
+	// Insert
+	var obj interface{}
+	err := json.Unmarshal([]byte(`{"value":"value1"}`), &obj)
+	cas, err := bucket.WriteCas("key1", 0, 0, 0, obj, 0)
+	assertNoError(t, err, "WriteCas")
+	assertTrue(t, cas > 0, "Cas value should be greater than zero")
+
+	// Update document with correct cas value
+	err = json.Unmarshal([]byte(`{"value":"value2"}`), &obj)
+	newCas, err := bucket.WriteCas("key1", 0, 0, cas, obj, 0)
+	assertTrue(t, err == nil, "Valid cas should not have returned error.")
+	assertTrue(t, cas > 0, "Cas value should be greater than zero")
+	assertTrue(t, cas != newCas, "Cas value should change on successful update")
+	var result interface{}
+	getCas, err := bucket.Get("key1", &result)
+	assert.DeepEquals(t, result, obj)
+	assert.Equals(t, getCas, newCas)
+
+	// Remove document with incorrect cas value
+	newCas, err = bucket.Remove("key1", cas)
+	assertTrue(t, err != nil, "Invalid cas should have returned error.")
+	assert.Equals(t, newCas, uint64(0))
+
+	// Remove document with correct cas value
+	newCas, err = bucket.Remove("key1", getCas)
+	assertTrue(t, err == nil, "Valid cas should not have returned error on remove.")
+	assertTrue(t, newCas != uint64(0), "Remove should return non-zero cas")
+
 }
 
 //////// HELPERS:
