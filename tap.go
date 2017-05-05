@@ -4,15 +4,15 @@ import sgbucket "github.com/couchbase/sg-bucket"
 
 type tapFeedImpl struct {
 	bucket  *WalrusBucket
-	channel chan sgbucket.TapEvent
-	args    sgbucket.TapArguments
+	channel chan sgbucket.FeedEvent
+	args    sgbucket.FeedArguments
 	events  *queue
 }
 
 // Starts a TAP feed on a client connection. The events can be read from the returned channel.
 // To stop receiving events, call Close() on the feed.
-func (bucket *WalrusBucket) StartTapFeed(args sgbucket.TapArguments) (sgbucket.TapFeed, error) {
-	channel := make(chan sgbucket.TapEvent, 10)
+func (bucket *WalrusBucket) StartTapFeed(args sgbucket.FeedArguments) (sgbucket.MutationFeed, error) {
+	channel := make(chan sgbucket.FeedEvent, 10)
 	feed := &tapFeedImpl{
 		bucket:  bucket,
 		channel: channel,
@@ -20,10 +20,10 @@ func (bucket *WalrusBucket) StartTapFeed(args sgbucket.TapArguments) (sgbucket.T
 		events:  newQueue(),
 	}
 
-	if args.Backfill != sgbucket.TapNoBackfill {
-		feed.events.push(&sgbucket.TapEvent{Opcode: sgbucket.TapBeginBackfill})
+	if args.Backfill != sgbucket.FeedNoBackfill {
+		feed.events.push(&sgbucket.FeedEvent{Opcode: sgbucket.FeedOpBeginBackfill})
 		bucket.enqueueBackfillEvents(args.Backfill, args.KeysOnly, feed.events)
-		feed.events.push(&sgbucket.TapEvent{Opcode: sgbucket.TapEndBackfill})
+		feed.events.push(&sgbucket.FeedEvent{Opcode: sgbucket.FeedOpEndBackfill})
 	}
 
 	if args.Dump {
@@ -40,11 +40,27 @@ func (bucket *WalrusBucket) StartTapFeed(args sgbucket.TapArguments) (sgbucket.T
 	return feed, nil
 }
 
-func (feed *tapFeedImpl) Events() <-chan sgbucket.TapEvent {
+// Until a full DCP implementation is available, walrus wraps tap feed to invoke callback
+func (bucket *WalrusBucket) StartDCPFeed(args sgbucket.FeedArguments, callback sgbucket.FeedEventCallbackFunc) error {
+
+	tapFeed, err := bucket.StartTapFeed(args)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		for event := range tapFeed.Events() {
+			callback(event)
+		}
+	}()
+	return nil
+}
+
+func (feed *tapFeedImpl) Events() <-chan sgbucket.FeedEvent {
 	return feed.channel
 }
 
-func (feed *tapFeedImpl) WriteEvents() chan<- sgbucket.TapEvent {
+func (feed *tapFeedImpl) WriteEvents() chan<- sgbucket.FeedEvent {
 	return feed.channel
 }
 
@@ -66,7 +82,7 @@ func (feed *tapFeedImpl) Close() error {
 func (feed *tapFeedImpl) run() {
 	defer close(feed.channel)
 	for {
-		event, _ := feed.events.pull().(*sgbucket.TapEvent)
+		event, _ := feed.events.pull().(*sgbucket.FeedEvent)
 		if event == nil {
 			break
 		}
@@ -80,8 +96,8 @@ func (bucket *WalrusBucket) enqueueBackfillEvents(startSequence uint64, keysOnly
 
 	for docid, doc := range bucket.Docs {
 		if doc.Raw != nil && doc.Sequence >= startSequence {
-			event := sgbucket.TapEvent{
-				Opcode:   sgbucket.TapMutation,
+			event := sgbucket.FeedEvent{
+				Opcode:   sgbucket.FeedOpMutation,
 				Key:      []byte(docid),
 				Sequence: doc.Sequence,
 			}
@@ -94,8 +110,8 @@ func (bucket *WalrusBucket) enqueueBackfillEvents(startSequence uint64, keysOnly
 }
 
 // Caller must have the bucket's RLock, because this method iterates bucket.tapFeeds
-func (bucket *WalrusBucket) _postTapEvent(event sgbucket.TapEvent) {
-	var eventNoValue sgbucket.TapEvent = event // copies the struct
+func (bucket *WalrusBucket) _postTapEvent(event sgbucket.FeedEvent) {
+	var eventNoValue sgbucket.FeedEvent = event // copies the struct
 	eventNoValue.Value = nil
 	for _, feed := range bucket.tapFeeds {
 		if feed != nil && feed.channel != nil {
@@ -109,8 +125,8 @@ func (bucket *WalrusBucket) _postTapEvent(event sgbucket.TapEvent) {
 }
 
 func (bucket *WalrusBucket) _postTapMutationEvent(key string, value []byte, seq uint64) {
-	bucket._postTapEvent(sgbucket.TapEvent{
-		Opcode:   sgbucket.TapMutation,
+	bucket._postTapEvent(sgbucket.FeedEvent{
+		Opcode:   sgbucket.FeedOpMutation,
 		Key:      []byte(key),
 		Value:    copySlice(value),
 		Sequence: seq,
@@ -118,8 +134,8 @@ func (bucket *WalrusBucket) _postTapMutationEvent(key string, value []byte, seq 
 }
 
 func (bucket *WalrusBucket) _postTapDeletionEvent(key string, seq uint64) {
-	bucket._postTapEvent(sgbucket.TapEvent{
-		Opcode:   sgbucket.TapDeletion,
+	bucket._postTapEvent(sgbucket.FeedEvent{
+		Opcode:   sgbucket.FeedOpDeletion,
 		Key:      []byte(key),
 		Sequence: seq,
 	})
