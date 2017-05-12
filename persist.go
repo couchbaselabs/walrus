@@ -14,7 +14,7 @@ import (
 // How long to wait after an in-memory change before saving to disk
 const kSaveInterval = 2 * time.Second
 
-func (bucket *Bucket) _save() error {
+func (bucket *WalrusBucket) _save() error {
 	if bucket.path == "" {
 		return nil
 	}
@@ -35,14 +35,14 @@ func (bucket *Bucket) _save() error {
 	return err
 }
 
-func load(path string) (*Bucket, error) {
+func load(path string) (*WalrusBucket, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	bucket := &Bucket{
+	bucket := &WalrusBucket{
 		path:  path,
 		views: map[string]walrusDesignDoc{},
 		vbSeqs: sgbucket.NewMapVbucketSeqCounter(SimulatedVBucketCount),
@@ -61,12 +61,12 @@ func load(path string) (*Bucket, error) {
 			return nil, err
 		}
 	}
-	runtime.SetFinalizer(bucket, (*Bucket).Close)
+	runtime.SetFinalizer(bucket, (*WalrusBucket).Close)
 	logg("Loaded bucket from %s", path)
 	return bucket, nil
 }
 
-func loadOrNew(path string, name string) (*Bucket, error) {
+func loadOrNew(path string, name string) (*WalrusBucket, error) {
 	bucket, err := load(path)
 	if os.IsNotExist(err) {
 		bucket = NewBucket(name)
@@ -78,7 +78,7 @@ func loadOrNew(path string, name string) (*Bucket, error) {
 }
 
 // Schedules a save for the near future. MUST be called while holding a write lock!
-func (bucket *Bucket) _saveSoon() {
+func (bucket *WalrusBucket) _saveSoon() {
 	if !bucket.saving && bucket.path != "" {
 		bucket.saving = true
 		go func() {
@@ -101,7 +101,7 @@ func (bucket *Bucket) _saveSoon() {
 // Loads or creates a persistent bucket in the given filesystem directory.
 // The bucket's backing file will be named "bucketName.walrus", or if the poolName is not
 // empty "default", "poolName-bucketName.walrus".
-func NewPersistentBucket(dir, poolName, bucketName string) (*Bucket, error) {
+func NewPersistentBucket(dir, poolName, bucketName string) (*WalrusBucket, error) {
 	filename := bucketName + ".walrus"
 	if poolName != "" && poolName != "default" {
 		filename = poolName + "-" + filename
@@ -114,7 +114,7 @@ func NewPersistentBucket(dir, poolName, bucketName string) (*Bucket, error) {
 	return bucket, nil
 }
 
-func (bucket *Bucket) _closePersist() error {
+func (bucket *WalrusBucket) _closePersist() error {
 	if !bucket.saving {
 		return nil
 	}
@@ -122,7 +122,7 @@ func (bucket *Bucket) _closePersist() error {
 	return bucket._save()
 }
 
-func (bucket *Bucket) isSequenceSaved(seq uint64) bool {
+func (bucket *WalrusBucket) isSequenceSaved(seq uint64) bool {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 	return bucket.lastSeqSaved >= seq

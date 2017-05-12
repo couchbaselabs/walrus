@@ -3,7 +3,7 @@ package walrus
 import sgbucket "github.com/couchbase/sg-bucket"
 
 type tapFeedImpl struct {
-	bucket  *Bucket
+	bucket  *WalrusBucket
 	channel chan sgbucket.TapEvent
 	args    sgbucket.TapArguments
 	events  *queue
@@ -11,7 +11,7 @@ type tapFeedImpl struct {
 
 // Starts a TAP feed on a client connection. The events can be read from the returned channel.
 // To stop receiving events, call Close() on the feed.
-func (bucket *Bucket) StartTapFeed(args sgbucket.TapArguments) (sgbucket.TapFeed, error) {
+func (bucket *WalrusBucket) StartTapFeed(args sgbucket.TapArguments) (sgbucket.TapFeed, error) {
 	channel := make(chan sgbucket.TapEvent, 10)
 	feed := &tapFeedImpl{
 		bucket:  bucket,
@@ -74,7 +74,7 @@ func (feed *tapFeedImpl) run() {
 	}
 }
 
-func (bucket *Bucket) enqueueBackfillEvents(startSequence uint64, keysOnly bool, q *queue) {
+func (bucket *WalrusBucket) enqueueBackfillEvents(startSequence uint64, keysOnly bool, q *queue) {
 	bucket.lock.RLock()
 	defer bucket.lock.RUnlock()
 
@@ -94,7 +94,7 @@ func (bucket *Bucket) enqueueBackfillEvents(startSequence uint64, keysOnly bool,
 }
 
 // Caller must have the bucket's RLock, because this method iterates bucket.tapFeeds
-func (bucket *Bucket) _postTapEvent(event sgbucket.TapEvent) {
+func (bucket *WalrusBucket) _postTapEvent(event sgbucket.TapEvent) {
 	var eventNoValue sgbucket.TapEvent = event // copies the struct
 	eventNoValue.Value = nil
 	for _, feed := range bucket.tapFeeds {
@@ -108,7 +108,7 @@ func (bucket *Bucket) _postTapEvent(event sgbucket.TapEvent) {
 	}
 }
 
-func (bucket *Bucket) _postTapMutationEvent(key string, value []byte, seq uint64) {
+func (bucket *WalrusBucket) _postTapMutationEvent(key string, value []byte, seq uint64) {
 	bucket._postTapEvent(sgbucket.TapEvent{
 		Opcode:   sgbucket.TapMutation,
 		Key:      []byte(key),
@@ -117,7 +117,7 @@ func (bucket *Bucket) _postTapMutationEvent(key string, value []byte, seq uint64
 	})
 }
 
-func (bucket *Bucket) _postTapDeletionEvent(key string, seq uint64) {
+func (bucket *WalrusBucket) _postTapDeletionEvent(key string, seq uint64) {
 	bucket._postTapEvent(sgbucket.TapEvent{
 		Opcode:   sgbucket.TapDeletion,
 		Key:      []byte(key),
