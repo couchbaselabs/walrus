@@ -219,6 +219,7 @@ func TestGetBulkRaw(t *testing.T) {
 func TestGets(t *testing.T) {
 
 	bucket := NewBucket("buckit")
+
 	defer bucket.Close()
 
 	// Gets (JSON)

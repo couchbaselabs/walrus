@@ -17,7 +17,7 @@ import (
 	"github.com/couchbaselabs/go.assert"
 )
 
-const kTestPath = "/tmp/lolrus_test_save.walrus"
+const kTestPath = "/tmp/walrus_test_save.walrus"
 
 func TestSave(t *testing.T) {
 	os.Remove(kTestPath)
@@ -32,7 +32,7 @@ func TestSave(t *testing.T) {
 
 	bucket2, err := load(kTestPath)
 	assertNoError(t, err, "couldn't load")
-	assert.DeepEquals(t, bucket2.lolrusData, bucket.lolrusData)
+	assert.DeepEquals(t, bucket2.walrusData, bucket.walrusData)
 
 	bucket.Set("key2", 0, []byte("NEWVALUE2"))
 
@@ -42,7 +42,7 @@ func TestSave(t *testing.T) {
 	bucket2, err = load(kTestPath)
 	defer bucket2.Close()
 	assertNoError(t, err, "couldn't re-load")
-	assert.DeepEquals(t, bucket2.lolrusData, bucket.lolrusData)
+	assert.DeepEquals(t, bucket2.walrusData, bucket.walrusData)
 }
 
 func TestLoadOrNew(t *testing.T) {
@@ -50,16 +50,16 @@ func TestLoadOrNew(t *testing.T) {
 	bucket, err := load(kTestPath)
 	assertTrue(t, os.IsNotExist(err), "Unexpected error")
 
-	bucket, err = loadOrNew(kTestPath, "lolrus_test_loadOrNew")
+	bucket, err = loadOrNew(kTestPath, "walrus_test_loadOrNew")
 	assertNoError(t, err, "loadOrNew failed")
 	assert.Equals(t, len(bucket.Docs), 0)
 
 	bucket.Add("key9", 0, `{"value": 9}`)
 	bucket.Close()
 
-	bucket, err = loadOrNew(kTestPath, "lolrus_test_loadOrNew")
+	bucket, err = loadOrNew(kTestPath, "walrus_test_loadOrNew")
 	assertNoError(t, err, "loadOrNew #2 failed")
-	assert.DeepEquals(t, bucket.lolrusData, bucket.lolrusData)
+	assert.DeepEquals(t, bucket.walrusData, bucket.walrusData)
 	bucket.Close()
 }
 
@@ -84,13 +84,13 @@ func TestNewPersistentBucket(t *testing.T) {
 	os.Remove("/tmp/pool-buckit.walrus")
 	bucket, err := GetBucket("walrus:/tmp", "pool", "buckit")
 	assertNoError(t, err, "NewPersistentBucket failed")
-	assert.Equals(t, bucket.(*lolrus).path, "/tmp/pool-buckit.walrus")
-	bucket.(*lolrus).Close()
+	assert.Equals(t, bucket.(*WalrusBucket).path, "/tmp/pool-buckit.walrus")
+	bucket.(*WalrusBucket).Close()
 
 	bucket, err = GetBucket("./temp", "default", "buckit")
 	assertNoError(t, err, "NewPersistentBucket failed")
-	assert.Equals(t, bucket.(*lolrus).path, "temp/buckit.walrus")
-	bucket.(*lolrus).Close()
+	assert.Equals(t, bucket.(*WalrusBucket).path, "temp/buckit.walrus")
+	bucket.(*WalrusBucket).Close()
 }
 
 func TestWriteWithPersist(t *testing.T) {
@@ -101,7 +101,7 @@ func TestWriteWithPersist(t *testing.T) {
 	assertNoError(t, bucket.Write("key1", 0, 0, []byte("value1"), sgbucket.Raw|sgbucket.Persist), "Write failed")
 
 	// Load the file into a new bucket to make sure the value got saved to disk:
-	bucket2, err := load(bucket.(*lolrus).path)
+	bucket2, err := load(bucket.(*WalrusBucket).path)
 	value, _, err := bucket2.GetRaw("key1")
 	assertNoError(t, err, "Get failed")
 	assert.Equals(t, string(value), "value1")
