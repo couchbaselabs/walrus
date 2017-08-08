@@ -348,7 +348,8 @@ func (bucket *WalrusBucket) DeleteWithXattr(k string, xattrKey string) error {
 	return errors.New("DeleteWithXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) WriteUpdateWithXattr(k string, xattrKey string, exp int, callback sgbucket.WriteUpdateWithXattrFunc) (casOut uint64, err error) {
+func (bucket *WalrusBucket) WriteUpdateWithXattr(k string, xattrKey string, exp int,
+	currentValue []byte, currentXattr []byte, currentCas uint64, callback sgbucket.WriteUpdateWithXattrFunc) (casOut uint64, err error) {
 	return 0, errors.New("WriteUpdateWithXattr not implemented for walrus")
 }
 
