@@ -226,7 +226,7 @@ func (bucket *WalrusBucket) GetRaw(k string) (rv []byte, cas uint64, err error) 
 	return copySlice(raw), cas, err // Public API returns copied slice to avoid client altering doc
 }
 
-func (bucket *WalrusBucket) GetAndTouchRaw(k string, exp int) (rv []byte, cas uint64, err error) {
+func (bucket *WalrusBucket) GetAndTouchRaw(k string, exp uint32) (rv []byte, cas uint64, err error) {
 	// Until walrus supports expiry, the exp value is ignored
 	return bucket.GetRaw(k)
 }
@@ -263,7 +263,7 @@ func (bucket *WalrusBucket) GetBulkRaw(keys []string) (map[string][]byte, error)
 
 //////// WRITE:
 
-func (bucket *WalrusBucket) Write(k string, flags int, exp int, v interface{}, opt sgbucket.WriteOptions) (err error) {
+func (bucket *WalrusBucket) Write(k string, flags int, exp uint32, v interface{}, opt sgbucket.WriteOptions) (err error) {
 	// Marshal JSON if the value is not raw:
 	isJSON := (opt&sgbucket.Raw == 0)
 	data, err := bucket.getData(v, isJSON)
@@ -281,7 +281,7 @@ func (bucket *WalrusBucket) Write(k string, flags int, exp int, v interface{}, o
 	return bucket.waitAfterWrite(seq, opt)
 }
 
-func (bucket *WalrusBucket) WriteCas(k string, flags int, exp int, cas uint64, v interface{}, opt sgbucket.WriteOptions) (casOut uint64, err error) {
+func (bucket *WalrusBucket) WriteCas(k string, flags int, exp uint32, cas uint64, v interface{}, opt sgbucket.WriteOptions) (casOut uint64, err error) {
 
 	// Marshal JSON if the value is not raw:
 	isJSON := (opt&sgbucket.Raw == 0)
@@ -336,7 +336,7 @@ func (bucket *WalrusBucket) SetBulk(entries []*sgbucket.BulkSetEntry) (err error
 	return nil
 }
 
-func (bucket *WalrusBucket) WriteCasWithXattr(k string, xattrKey string, exp int, cas uint64, v interface{}, xv interface{}) (casOut uint64, err error) {
+func (bucket *WalrusBucket) WriteCasWithXattr(k string, xattrKey string, exp uint32, cas uint64, v interface{}, xv interface{}) (casOut uint64, err error) {
 	return 0, errors.New("WriteCasWithXattr not implemented for walrus")
 }
 
@@ -348,7 +348,7 @@ func (bucket *WalrusBucket) DeleteWithXattr(k string, xattrKey string) error {
 	return errors.New("DeleteWithXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) WriteUpdateWithXattr(k string, xattrKey string, exp int, previous *sgbucket.BucketDocument, callback sgbucket.WriteUpdateWithXattrFunc) (casOut uint64, err error) {
+func (bucket *WalrusBucket) WriteUpdateWithXattr(k string, xattrKey string, exp uint32, previous *sgbucket.BucketDocument, callback sgbucket.WriteUpdateWithXattrFunc) (casOut uint64, err error) {
 	return 0, errors.New("WriteUpdateWithXattr not implemented for walrus")
 }
 
@@ -383,7 +383,7 @@ func (bucket *WalrusBucket) waitAfterWrite(seq uint64, opt sgbucket.WriteOptions
 	return nil
 }
 
-func (bucket *WalrusBucket) write(k string, exp int, raw []byte, opt sgbucket.WriteOptions) (seq uint64, err error) {
+func (bucket *WalrusBucket) write(k string, exp uint32, raw []byte, opt sgbucket.WriteOptions) (seq uint64, err error) {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
@@ -427,7 +427,7 @@ func (bucket *WalrusBucket) write(k string, exp int, raw []byte, opt sgbucket.Wr
 
 //////// ADD / SET / DELETE:
 
-func (bucket *WalrusBucket) add(k string, exp int, v interface{}, opt sgbucket.WriteOptions) (added bool, err error) {
+func (bucket *WalrusBucket) add(k string, exp uint32, v interface{}, opt sgbucket.WriteOptions) (added bool, err error) {
 	err = bucket.Write(k, 0, exp, v, opt|sgbucket.AddOnly)
 	if err == sgbucket.ErrKeyExists {
 		return false, nil
@@ -435,25 +435,25 @@ func (bucket *WalrusBucket) add(k string, exp int, v interface{}, opt sgbucket.W
 	return (err == nil), err
 }
 
-func (bucket *WalrusBucket) AddRaw(k string, exp int, v []byte) (added bool, err error) {
+func (bucket *WalrusBucket) AddRaw(k string, exp uint32, v []byte) (added bool, err error) {
 	if v == nil {
 		panic("nil value")
 	}
 	return bucket.add(k, exp, v, sgbucket.Raw)
 }
 
-func (bucket *WalrusBucket) Add(k string, exp int, v interface{}) (added bool, err error) {
+func (bucket *WalrusBucket) Add(k string, exp uint32, v interface{}) (added bool, err error) {
 	return bucket.add(k, exp, v, 0)
 }
 
-func (bucket *WalrusBucket) SetRaw(k string, exp int, v []byte) error {
+func (bucket *WalrusBucket) SetRaw(k string, exp uint32, v []byte) error {
 	if v == nil {
 		panic("nil value")
 	}
 	return bucket.Write(k, 0, exp, v, sgbucket.Raw)
 }
 
-func (bucket *WalrusBucket) Set(k string, exp int, v interface{}) error {
+func (bucket *WalrusBucket) Set(k string, exp uint32, v interface{}) error {
 	return bucket.Write(k, 0, exp, v, 0)
 }
 
@@ -470,13 +470,13 @@ func (bucket *WalrusBucket) Append(k string, data []byte) error {
 
 //////// UPDATE:
 
-func (bucket *WalrusBucket) WriteUpdate(k string, exp int, callback sgbucket.WriteUpdateFunc) error {
+func (bucket *WalrusBucket) WriteUpdate(k string, exp uint32, callback sgbucket.WriteUpdateFunc) error {
 	var err error
 	var opts sgbucket.WriteOptions
 	var seq uint64
 	for {
 		var doc walrusDoc = bucket.getDoc(k)
-		doc.Raw, opts, err = callback(copySlice(doc.Raw))
+		doc.Raw, opts, _, err = callback(copySlice(doc.Raw))
 		doc.IsJSON = doc.Raw != nil && ((opts & sgbucket.Raw) == 0)
 		if err != nil {
 			return err
@@ -488,10 +488,10 @@ func (bucket *WalrusBucket) WriteUpdate(k string, exp int, callback sgbucket.Wri
 	return bucket.waitAfterWrite(seq, opts)
 }
 
-func (bucket *WalrusBucket) Update(k string, exp int, callback sgbucket.UpdateFunc) error {
-	writeCallback := func(current []byte) (updated []byte, opts sgbucket.WriteOptions, err error) {
-		updated, err = callback(current)
-		return
+func (bucket *WalrusBucket) Update(k string, exp uint32, callback sgbucket.UpdateFunc) error {
+	writeCallback := func(current []byte) (updated []byte, opts sgbucket.WriteOptions, expiry *uint32, err error) {
+		updated, expiry, err = callback(current)
+		return updated, opts, expiry, err
 	}
 	return bucket.WriteUpdate(k, exp, writeCallback)
 }
@@ -540,7 +540,7 @@ func (bucket *WalrusBucket) updateDoc(k string, doc *walrusDoc) uint64 {
 
 //////// INCR:
 
-func (bucket *WalrusBucket) Incr(k string, amt, def uint64, exp int) (uint64, error) {
+func (bucket *WalrusBucket) Incr(k string, amt, def uint64, exp uint32) (uint64, error) {
 	// Potential concurrency issue if using RLock when amt=0 - can turn into a write if
 	// the key doesn't exist and so gets initialized to def.  Switching to a hard write lock
 	// for all operations for the time being - could be refactored back to read-then-write, but
