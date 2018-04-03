@@ -45,6 +45,7 @@ type WalrusBucket struct {
 	lock         sync.RWMutex               // For thread-safety
 	views        map[string]walrusDesignDoc // Stores runtime view/index data
 	vbSeqs       sgbucket.VbucketSeqCounter // Per-vb sequence couner
+	testCallback sgbucket.TestCallbackFn    // Test callback function to help repro CAS retries
 	tapFeeds     []*tapFeedImpl
 	walrusData
 }
@@ -606,4 +607,12 @@ func (bucket *WalrusBucket) CouchbaseServerVersion() (major uint64, minor uint64
 
 func (bucket *WalrusBucket) UUID() (string, error) {
 	return "error", fmt.Errorf("Walrus bucket has no UUID")
+}
+
+func (bucket *WalrusBucket) SetTestCallback(fn sgbucket.TestCallbackFn) {
+	bucket.testCallback = fn
+}
+
+func (bucket *WalrusBucket) GetTestCallback() (fn sgbucket.TestCallbackFn) {
+	return bucket.testCallback
 }
