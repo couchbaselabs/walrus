@@ -489,6 +489,11 @@ func (bucket *WalrusBucket) WriteUpdate(k string, exp uint32, callback sgbucket.
 	return bucket.waitAfterWrite(seq, opts)
 }
 
+// Since Walrus doesn't support doc expiry, this ignores the "touch" and calls WriteUpdate()
+func (bucket *WalrusBucket) WriteUpdateAndTouch(k string, exp uint32, callback sgbucket.WriteUpdateFunc) error {
+	return bucket.WriteUpdate(k, exp, callback)
+}
+
 func (bucket *WalrusBucket) Update(k string, exp uint32, callback sgbucket.UpdateFunc) error {
 	writeCallback := func(current []byte) (updated []byte, opts sgbucket.WriteOptions, expiry *uint32, err error) {
 		updated, expiry, err = callback(current)
