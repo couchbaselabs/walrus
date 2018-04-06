@@ -154,6 +154,11 @@ func (bucket *WalrusBucket) View(docName, viewName string, params map[string]int
 	return sgbucket.ProcessViewResult(result, params, bucket, view.reduceFunction)
 }
 
+func (bucket *WalrusBucket) ViewQuery(ddoc, name string, params map[string]interface{}) (sgbucket.QueryResultIterator, error) {
+	viewResult, err := bucket.View(ddoc, name, params)
+	return &viewResult, err
+}
+
 type jsMapFunctionInput struct {
 	docid string
 	raw   string
