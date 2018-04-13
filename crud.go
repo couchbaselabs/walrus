@@ -45,6 +45,7 @@ type WalrusBucket struct {
 	lock         sync.RWMutex               // For thread-safety
 	views        map[string]walrusDesignDoc // Stores runtime view/index data
 	vbSeqs       sgbucket.VbucketSeqCounter // Per-vb sequence couner
+	testCallback sgbucket.TestCallbackFn    // Test callback function to help repro CAS retries
 	tapFeeds     []*tapFeedImpl
 	walrusData
 }
@@ -488,6 +489,11 @@ func (bucket *WalrusBucket) WriteUpdate(k string, exp uint32, callback sgbucket.
 	return bucket.waitAfterWrite(seq, opts)
 }
 
+// Since Walrus doesn't support doc expiry, this ignores the "touch" and calls WriteUpdate()
+func (bucket *WalrusBucket) WriteUpdateAndTouch(k string, exp uint32, callback sgbucket.WriteUpdateFunc) error {
+	return bucket.WriteUpdate(k, exp, callback)
+}
+
 func (bucket *WalrusBucket) Update(k string, exp uint32, callback sgbucket.UpdateFunc) error {
 	writeCallback := func(current []byte) (updated []byte, opts sgbucket.WriteOptions, expiry *uint32, err error) {
 		updated, expiry, err = callback(current)
@@ -606,4 +612,12 @@ func (bucket *WalrusBucket) CouchbaseServerVersion() (major uint64, minor uint64
 
 func (bucket *WalrusBucket) UUID() (string, error) {
 	return "error", fmt.Errorf("Walrus bucket has no UUID")
+}
+
+func (bucket *WalrusBucket) SetTestCallback(fn sgbucket.TestCallbackFn) {
+	bucket.testCallback = fn
+}
+
+func (bucket *WalrusBucket) GetTestCallback() (fn sgbucket.TestCallbackFn) {
+	return bucket.testCallback
 }
