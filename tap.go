@@ -97,9 +97,9 @@ func (bucket *WalrusBucket) enqueueBackfillEvents(startSequence uint64, keysOnly
 	for docid, doc := range bucket.Docs {
 		if doc.Raw != nil && doc.Sequence >= startSequence {
 			event := sgbucket.FeedEvent{
-				Opcode:   sgbucket.FeedOpMutation,
-				Key:      []byte(docid),
-				Sequence: doc.Sequence,
+				Opcode: sgbucket.FeedOpMutation,
+				Key:    []byte(docid),
+				Cas:    doc.Sequence,
 			}
 			if !keysOnly {
 				event.Value = doc.Raw
@@ -126,17 +126,17 @@ func (bucket *WalrusBucket) _postTapEvent(event sgbucket.FeedEvent) {
 
 func (bucket *WalrusBucket) _postTapMutationEvent(key string, value []byte, seq uint64) {
 	bucket._postTapEvent(sgbucket.FeedEvent{
-		Opcode:   sgbucket.FeedOpMutation,
-		Key:      []byte(key),
-		Value:    copySlice(value),
-		Sequence: seq,
+		Opcode: sgbucket.FeedOpMutation,
+		Key:    []byte(key),
+		Value:  copySlice(value),
+		Cas:    seq,
 	})
 }
 
 func (bucket *WalrusBucket) _postTapDeletionEvent(key string, seq uint64) {
 	bucket._postTapEvent(sgbucket.FeedEvent{
-		Opcode:   sgbucket.FeedOpDeletion,
-		Key:      []byte(key),
-		Sequence: seq,
+		Opcode: sgbucket.FeedOpDeletion,
+		Key:    []byte(key),
+		Cas:    seq,
 	})
 }

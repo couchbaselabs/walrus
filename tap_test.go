@@ -56,8 +56,8 @@ func TestMutations(t *testing.T) {
 		bucket.Delete("eskimo")
 	}()
 
-	assert.DeepEquals(t, <-feed.Events(), sgbucket.FeedEvent{Opcode: sgbucket.FeedOpMutation, Key: []byte("delta"), Value: []byte(`"D"`), Sequence: 4})
-	assert.DeepEquals(t, <-feed.Events(), sgbucket.FeedEvent{Opcode: sgbucket.FeedOpMutation, Key: []byte("eskimo"), Value: []byte(`"E"`), Sequence: 5})
-	assert.DeepEquals(t, <-feed.Events(), sgbucket.FeedEvent{Opcode: sgbucket.FeedOpMutation, Key: []byte("fahrvergnügen"), Value: []byte(`"F"`), Sequence: 6})
-	assert.DeepEquals(t, <-feed.Events(), sgbucket.FeedEvent{Opcode: sgbucket.FeedOpDeletion, Key: []byte("eskimo"), Sequence: 7})
+	assert.DeepEquals(t, <-feed.Events(), sgbucket.FeedEvent{Opcode: sgbucket.FeedOpMutation, Key: []byte("delta"), Value: []byte(`"D"`), Cas: 4})
+	assert.DeepEquals(t, <-feed.Events(), sgbucket.FeedEvent{Opcode: sgbucket.FeedOpMutation, Key: []byte("eskimo"), Value: []byte(`"E"`), Cas: 5})
+	assert.DeepEquals(t, <-feed.Events(), sgbucket.FeedEvent{Opcode: sgbucket.FeedOpMutation, Key: []byte("fahrvergnügen"), Value: []byte(`"F"`), Cas: 6})
+	assert.DeepEquals(t, <-feed.Events(), sgbucket.FeedEvent{Opcode: sgbucket.FeedOpDeletion, Key: []byte("eskimo"), Cas: 7})
 }
