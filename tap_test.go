@@ -19,7 +19,7 @@ func TestBackfill(t *testing.T) {
 	assert.True(t, feed != nil)
 
 	event := <-feed.Events()
-	assert.Equals(t, event.Opcode, sgbucket.TapBeginBackfill)
+	assert.Equals(t, event.Opcode, sgbucket.FeedOpBeginBackfill)
 	results := map[string]string{}
 	for i := 0; i < 3; i++ {
 		event := <-feed.Events()
@@ -30,7 +30,7 @@ func TestBackfill(t *testing.T) {
 		"able": `"A"`, "baker": `"B"`, "charlie": `"C"`})
 
 	event = <-feed.Events()
-	assert.Equals(t, event.Opcode, sgbucket.TapEndBackfill)
+	assert.Equals(t, event.Opcode, sgbucket.FeedOpEndBackfill)
 
 	event, ok := <-feed.Events()
 	assert.False(t, ok)

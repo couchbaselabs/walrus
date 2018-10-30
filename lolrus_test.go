@@ -66,9 +66,6 @@ func TestIncr(t *testing.T) {
 	count, err = bucket.Incr("count1", 0, 0, 0)
 	assertNoError(t, err, "Incr")
 	assert.Equals(t, count, uint64(110))
-
-	count, err = bucket.Incr("count2", 0, 0, -1)
-	assertTrue(t, err != nil, "Expected error from Incr")
 }
 
 // Spawns 1000 goroutines that 'simultaneously' use Incr to increment the same counter by 1.
