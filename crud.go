@@ -470,8 +470,8 @@ func (bucket *WalrusBucket) Append(k string, data []byte) error {
 
 //////// UPDATE:
 
-func (bucket *WalrusBucket) WriteUpdate(k string, exp uint32, callback sgbucket.WriteUpdateFunc) error {
-	var err error
+func (bucket *WalrusBucket) WriteUpdate(k string, exp uint32, callback sgbucket.WriteUpdateFunc) (casOut uint64, err error) {
+
 	var opts sgbucket.WriteOptions
 	var seq uint64
 	for {
@@ -479,16 +479,17 @@ func (bucket *WalrusBucket) WriteUpdate(k string, exp uint32, callback sgbucket.
 		doc.Raw, opts, _, err = callback(copySlice(doc.Raw))
 		doc.IsJSON = doc.Raw != nil && ((opts & sgbucket.Raw) == 0)
 		if err != nil {
-			return err
+			return doc.Sequence, err
 		} else if seq = bucket.updateDoc(k, &doc); seq > 0 {
 			break
 		}
 	}
 	// Document has been updated:
-	return bucket.waitAfterWrite(seq, opts)
+	err = bucket.waitAfterWrite(seq, opts)
+	return seq, err
 }
 
-func (bucket *WalrusBucket) Update(k string, exp uint32, callback sgbucket.UpdateFunc) error {
+func (bucket *WalrusBucket) Update(k string, exp uint32, callback sgbucket.UpdateFunc) (casOut uint64, err error) {
 	writeCallback := func(current []byte) (updated []byte, opts sgbucket.WriteOptions, expiry *uint32, err error) {
 		updated, expiry, err = callback(current)
 		return updated, opts, expiry, err
