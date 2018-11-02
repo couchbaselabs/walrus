@@ -302,6 +302,17 @@ func TestWriteCas(t *testing.T) {
 	newCas, err = bucket.WriteCas("keyraw1", 0, 0, cas, []byte("value3"), sgbucket.Raw)
 	assertTrue(t, err != nil, "Invalid cas should have returned error.")
 	assert.Equals(t, newCas, uint64(0))
+
+	// Delete document, attempt to recreate w/ cas set to 0
+	err = bucket.Delete("keyraw1")
+	assertTrue(t, err == nil, "Delete failed")
+	newCas, err = bucket.WriteCas("keyraw1", 0, 0, 0, []byte("resurrectValue"), sgbucket.Raw)
+	assertTrue(t, err == nil, "Recreate with cas=0 should succeed.")
+	assertTrue(t, cas > 0, "Cas value should be greater than zero")
+	value, getCas, err = bucket.GetRaw("keyraw1")
+	assert.DeepEquals(t, value, []byte("resurrectValue"))
+	assert.Equals(t, getCas, newCas)
+
 }
 
 func TestRemove(t *testing.T) {

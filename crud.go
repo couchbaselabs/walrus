@@ -516,11 +516,18 @@ func (bucket *WalrusBucket) updateDoc(k string, doc *walrusDoc) uint64 {
 	defer bucket.lock.Unlock()
 
 	var curSequence uint64
-	if curDoc := bucket.Docs[k]; curDoc != nil {
+	curDoc := bucket.Docs[k]
+	if curDoc != nil {
 		curSequence = curDoc.Sequence
 	}
+
 	if curSequence != doc.Sequence {
-		return 0
+		if curDoc.Raw == nil && doc.Sequence == 0 {
+			// curDoc.Raw == nil represents a deleted document.  Allow update
+			// when incoming cas/sequence is zero in this case
+		} else {
+			return 0
+		}
 	}
 	doc.Sequence = bucket._nextSequence()
 
