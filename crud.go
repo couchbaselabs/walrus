@@ -522,7 +522,7 @@ func (bucket *WalrusBucket) updateDoc(k string, doc *walrusDoc) uint64 {
 	}
 
 	if curSequence != doc.Sequence {
-		if curDoc.Raw == nil && doc.Sequence == 0 {
+		if curDoc != nil && curDoc.Raw == nil && doc.Sequence == 0 {
 			// curDoc.Raw == nil represents a deleted document.  Allow update
 			// when incoming cas/sequence is zero in this case
 		} else {
