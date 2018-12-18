@@ -231,6 +231,13 @@ func (bucket *WalrusBucket) GetAndTouchRaw(k string, exp uint32) (rv []byte, cas
 	return bucket.GetRaw(k)
 }
 
+func (bucket *WalrusBucket) Touch(k string, exp uint32) (casOut uint64, err error) {
+	// Until walrus supports expiry, the touch doesn't modify expiry but
+	// otherwise has correct cas/error behaviour
+	_, casOut, err = bucket.getRaw(k)
+	return casOut, err
+}
+
 func (bucket *WalrusBucket) Get(k string, rv interface{}) (cas uint64, err error) {
 	raw, cas, err := bucket.getRaw(k)
 	if err != nil {
