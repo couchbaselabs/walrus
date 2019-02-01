@@ -26,6 +26,7 @@ import (
 
 const (
 	SimulatedVBucketCount = 1024 // Used when hashing doc id -> vbno
+	maxDocSize = 20000000 // Used during the write function
 )
 
 // The persistent portion of a Bucket object (the stuff that gets archived to disk.)
@@ -56,14 +57,6 @@ type walrusDoc struct {
 	VbNo     uint32 // The vbno (just hash of doc id)
 	VbSeq    uint64 // Vb seq -- only used for doc meta for views
 	Sequence uint64 // Current sequence number assigned
-}
-
-//Type error when document is too large > 20MB
-type DocTooLargeError struct {
-}
-
-func (err DocTooLargeError) Error() string {
-	return fmt.Sprintf("document too large")
 }
 
 // Creates a simple in-memory Bucket, suitable only for amusement purposes & testing.
@@ -401,8 +394,8 @@ func (bucket *WalrusBucket) waitAfterWrite(seq uint64, opt sgbucket.WriteOptions
 func (bucket *WalrusBucket) write(k string, exp uint32, raw []byte, opt sgbucket.WriteOptions) (seq uint64, err error) {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
-	if len(raw) > 20000000{
-		return 0, DocTooLargeError{}
+	if len(raw) > maxDocSize{
+		return 0, errors.New("document too large")
 	}
 
 	doc := bucket.Docs[k]
