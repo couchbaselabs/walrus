@@ -395,7 +395,7 @@ func (bucket *WalrusBucket) write(k string, exp uint32, raw []byte, opt sgbucket
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 	if len(raw) > maxDocSize{
-		return 0, errors.New("document too large")
+		return 0, errors.New("document value was too large")
 	}
 
 	doc := bucket.Docs[k]
