@@ -26,8 +26,9 @@ import (
 
 const (
 	SimulatedVBucketCount = 1024 // Used when hashing doc id -> vbno
-	maxDocSize = 20000000 // Used during the write function
 )
+
+var MaxDocSize = 0 // Used during the write function
 
 // The persistent portion of a Bucket object (the stuff that gets archived to disk.)
 type walrusData struct {
@@ -394,7 +395,7 @@ func (bucket *WalrusBucket) waitAfterWrite(seq uint64, opt sgbucket.WriteOptions
 func (bucket *WalrusBucket) write(k string, exp uint32, raw []byte, opt sgbucket.WriteOptions) (seq uint64, err error) {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
-	if len(raw) > maxDocSize{
+	if MaxDocSize > 0 && len(raw) > MaxDocSize{
 		return 0, errors.New("document value was too large")
 	}
 
