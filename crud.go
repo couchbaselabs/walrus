@@ -58,6 +58,14 @@ type walrusDoc struct {
 	Sequence uint64 // Current sequence number assigned
 }
 
+//Type error when document is too large > 20MB
+type DocTooLargeError struct {
+}
+
+func (err DocTooLargeError) Error() string {
+	return fmt.Sprintf("document too large")
+}
+
 // Creates a simple in-memory Bucket, suitable only for amusement purposes & testing.
 // The Bucket is created empty. There is no way to save it persistently.
 func NewBucket(bucketName string) *WalrusBucket {
@@ -393,6 +401,9 @@ func (bucket *WalrusBucket) waitAfterWrite(seq uint64, opt sgbucket.WriteOptions
 func (bucket *WalrusBucket) write(k string, exp uint32, raw []byte, opt sgbucket.WriteOptions) (seq uint64, err error) {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
+	if len(raw) > 20000000{
+		return 0, DocTooLargeError{}
+	}
 
 	doc := bucket.Docs[k]
 	if doc == nil {
