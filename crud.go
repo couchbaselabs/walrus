@@ -351,7 +351,7 @@ func (bucket *WalrusBucket) GetWithXattr(k string, xattrKey string, rv interface
 	return 0, errors.New("GetWithXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) DeleteWithXattr (k string, xattrKey string) error {
+func (bucket *WalrusBucket) DeleteWithXattr(k string, xattrKey string) error {
 	return errors.New("DeleteWithXattr not implemented for walrus")
 }
 
