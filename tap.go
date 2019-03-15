@@ -9,7 +9,7 @@ type tapFeedImpl struct {
 	events  *queue
 }
 
-// Starts a TAP feed on a client connection. The events can be read from the returned channel.
+// StartTapFeed starts a TAP feed on a client connection. The events can be read from the returned channel.
 // To stop receiving events, call Close() on the feed.
 func (bucket *WalrusBucket) StartTapFeed(args sgbucket.FeedArguments) (sgbucket.MutationFeed, error) {
 	channel := make(chan sgbucket.FeedEvent, 10)

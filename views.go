@@ -87,7 +87,7 @@ func (bucket *WalrusBucket) _compileDesignDoc(docname string, design *sgbucket.D
 	return nil
 }
 
-// Validates a design document.
+// CheckDDoc validates a design document.
 func CheckDDoc(value interface{}) (*sgbucket.DesignDoc, error) {
 	source, err := json.Marshal(value)
 	if err != nil {

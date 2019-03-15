@@ -80,7 +80,7 @@ func NewBucket(bucketName string) *WalrusBucket {
 var buckets map[[3]string]*WalrusBucket
 var bucketsLock sync.Mutex
 
-// Returns a Walrus-based Bucket specific to the given (url, pool, bucketname) tuple.
+// GetBucket returns a Walrus-based Bucket specific to the given (url, pool, bucketname) tuple.
 // That is, passing the same parameters will return the same Bucket.
 //
 // If the urlStr has any of the forms below it will be considered a filesystem directory
