@@ -22,6 +22,7 @@ import (
 	"time"
 
 	sgbucket "github.com/couchbase/sg-bucket"
+	"github.com/couchbase/sync_gateway/base"
 )
 
 const (
@@ -399,7 +400,7 @@ func (bucket *WalrusBucket) waitAfterWrite(seq uint64, opt sgbucket.WriteOptions
 func (bucket *WalrusBucket) write(k string, exp uint32, raw []byte, opt sgbucket.WriteOptions) (seq uint64, err error) {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
-	if MaxDocSize > 0 && len(raw) > MaxDocSize{
+	if MaxDocSize > 0 && len(raw) > MaxDocSize {
 		return 0, errors.New("document value was too large")
 	}
 
@@ -630,4 +631,15 @@ func (bucket *WalrusBucket) CouchbaseServerVersion() (major uint64, minor uint64
 
 func (bucket *WalrusBucket) UUID() (string, error) {
 	return "error", fmt.Errorf("Walrus bucket has no UUID")
+}
+
+func (bucket *WalrusBucket) IsSupported(feature sgbucket.Feature) bool {
+	switch feature {
+	case base.FeatureXattr:
+		return false
+	case base.FeatureN1ql:
+		return false
+	default:
+		return false
+	}
 }
