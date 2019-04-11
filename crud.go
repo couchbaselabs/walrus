@@ -22,7 +22,6 @@ import (
 	"time"
 
 	sgbucket "github.com/couchbase/sg-bucket"
-	"github.com/couchbase/sync_gateway/base"
 )
 
 const (
@@ -635,9 +634,9 @@ func (bucket *WalrusBucket) UUID() (string, error) {
 
 func (bucket *WalrusBucket) IsSupported(feature sgbucket.Feature) bool {
 	switch feature {
-	case base.FeatureXattr:
+	case sgbucket.FeatureXattrs:
 		return false
-	case base.FeatureN1ql:
+	case sgbucket.FeatureN1ql:
 		return false
 	default:
 		return false
