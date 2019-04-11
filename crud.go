@@ -632,11 +632,11 @@ func (bucket *WalrusBucket) UUID() (string, error) {
 	return "error", fmt.Errorf("Walrus bucket has no UUID")
 }
 
-func (bucket *WalrusBucket) IsSupported(feature sgbucket.Feature) bool {
+func (bucket *WalrusBucket) IsSupported(feature sgbucket.BucketFeature) bool {
 	switch feature {
-	case sgbucket.FeatureXattrs:
+	case sgbucket.BucketFeatureXattrs:
 		return false
-	case sgbucket.FeatureN1ql:
+	case sgbucket.BucketFeatureN1ql:
 		return false
 	default:
 		return false
