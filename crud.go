@@ -624,8 +624,8 @@ func (bucket *WalrusBucket) GetMaxVbno() (uint16, error) {
 	return 1024, nil
 }
 
-func (bucket *WalrusBucket) CouchbaseServerVersion() (major uint64, minor uint64, micro string, err error) {
-	return 0, 0, "error", fmt.Errorf("Walrus bucket has no CouchbaseServerVersion")
+func (bucket *WalrusBucket) CouchbaseServerVersion() (major uint64, minor uint64, micro string) {
+	return 0, 0, "error"
 }
 
 func (bucket *WalrusBucket) UUID() (string, error) {
@@ -637,6 +637,8 @@ func (bucket *WalrusBucket) IsSupported(feature sgbucket.BucketFeature) bool {
 	case sgbucket.BucketFeatureXattrs:
 		return false
 	case sgbucket.BucketFeatureN1ql:
+		return false
+	case sgbucket.BucketFeatureCrc32cMacroExpansion:
 		return false
 	default:
 		return false
