@@ -30,6 +30,12 @@ const (
 
 var MaxDocSize = 0 // Used during the write function
 
+type DocTooBigErr struct{}
+
+func (err DocTooBigErr) Error() string {
+	return "x"
+}
+
 // The persistent portion of a Bucket object (the stuff that gets archived to disk.)
 type walrusData struct {
 	LastSeq    uint64                         // Last sequence number assigned
@@ -305,7 +311,10 @@ func (bucket *WalrusBucket) WriteCas(k string, flags int, exp uint32, cas uint64
 	doc.IsJSON = isJSON
 
 	// Update
-	casOut = bucket.updateDoc(k, doc)
+	casOut, err = bucket.updateDoc(k, doc)
+	if err != nil {
+		return 0, err
+	}
 	if casOut == 0 {
 		return casOut, errors.New("CAS mismatch")
 	}
@@ -322,7 +331,10 @@ func (bucket *WalrusBucket) Remove(k string, cas uint64) (casOut uint64, err err
 	doc.Raw = nil
 	doc.IsJSON = false
 
-	casOut = bucket.updateDoc(k, doc)
+	casOut, err = bucket.updateDoc(k, doc)
+	if err != nil {
+		return 0, err
+	}
 	if casOut == 0 {
 		return casOut, errors.New("CAS mismatch")
 	}
@@ -400,7 +412,7 @@ func (bucket *WalrusBucket) write(k string, exp uint32, raw []byte, opt sgbucket
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 	if MaxDocSize > 0 && len(raw) > MaxDocSize {
-		return 0, errors.New("document value was too large")
+		return 0, DocTooBigErr{}
 	}
 
 	doc := bucket.Docs[k]
@@ -496,8 +508,13 @@ func (bucket *WalrusBucket) WriteUpdate(k string, exp uint32, callback sgbucket.
 		doc.IsJSON = doc.Raw != nil && ((opts & sgbucket.Raw) == 0)
 		if err != nil {
 			return doc.Sequence, err
-		} else if seq = bucket.updateDoc(k, &doc); seq > 0 {
-			break
+		} else {
+			seq, err = bucket.updateDoc(k, &doc)
+			if err != nil {
+				return 0, err
+			} else if seq > 0 {
+				break
+			}
 		}
 	}
 	// Document has been updated:
@@ -527,7 +544,12 @@ func (bucket *WalrusBucket) getDoc(k string) walrusDoc {
 }
 
 // Replaces a walrusDoc as long as its sequence number hasn't changed yet. (Used by Update)
-func (bucket *WalrusBucket) updateDoc(k string, doc *walrusDoc) uint64 {
+func (bucket *WalrusBucket) updateDoc(k string, doc *walrusDoc) (uint64, error) {
+
+	if MaxDocSize > 0 && len(doc.Raw) > MaxDocSize {
+		return 0, DocTooBigErr{}
+	}
+
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
@@ -542,14 +564,14 @@ func (bucket *WalrusBucket) updateDoc(k string, doc *walrusDoc) uint64 {
 			// curDoc.Raw == nil represents a deleted document.  Allow update
 			// when incoming cas/sequence is zero in this case
 		} else {
-			return 0
+			return 0, nil
 		}
 	}
 	doc.Sequence = bucket._nextSequence()
 
 	err := bucket.SetVbAndSeq(doc, k)
 	if err != nil {
-		return 0
+		return 0, nil
 	}
 
 	bucket.Docs[k] = doc
@@ -559,7 +581,7 @@ func (bucket *WalrusBucket) updateDoc(k string, doc *walrusDoc) uint64 {
 		bucket._postTapDeletionEvent(k, doc.Sequence)
 	}
 
-	return doc.Sequence
+	return doc.Sequence, nil
 }
 
 //////// INCR:
