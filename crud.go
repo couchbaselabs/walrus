@@ -33,7 +33,7 @@ var MaxDocSize = 0 // Used during the write function
 type DocTooBigErr struct{}
 
 func (err DocTooBigErr) Error() string {
-	return "x"
+	return "Document value was too large!"
 }
 
 // The persistent portion of a Bucket object (the stuff that gets archived to disk.)
@@ -409,11 +409,12 @@ func (bucket *WalrusBucket) waitAfterWrite(seq uint64, opt sgbucket.WriteOptions
 }
 
 func (bucket *WalrusBucket) write(k string, exp uint32, raw []byte, opt sgbucket.WriteOptions) (seq uint64, err error) {
-	bucket.lock.Lock()
-	defer bucket.lock.Unlock()
 	if MaxDocSize > 0 && len(raw) > MaxDocSize {
 		return 0, DocTooBigErr{}
 	}
+
+	bucket.lock.Lock()
+	defer bucket.lock.Unlock()
 
 	doc := bucket.Docs[k]
 	if doc == nil {
@@ -508,14 +509,17 @@ func (bucket *WalrusBucket) WriteUpdate(k string, exp uint32, callback sgbucket.
 		doc.IsJSON = doc.Raw != nil && ((opts & sgbucket.Raw) == 0)
 		if err != nil {
 			return doc.Sequence, err
-		} else {
-			seq, err = bucket.updateDoc(k, &doc)
-			if err != nil {
-				return 0, err
-			} else if seq > 0 {
-				break
-			}
 		}
+
+		seq, err = bucket.updateDoc(k, &doc)
+		if err != nil {
+			return 0, err
+		}
+
+		if seq > 0 {
+			break
+		}
+
 	}
 	// Document has been updated:
 	err = bucket.waitAfterWrite(seq, opts)
