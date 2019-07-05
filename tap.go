@@ -1,6 +1,10 @@
 package walrus
 
-import sgbucket "github.com/couchbase/sg-bucket"
+import (
+	"expvar"
+
+	sgbucket "github.com/couchbase/sg-bucket"
+)
 
 type tapFeedImpl struct {
 	bucket  *WalrusBucket
@@ -11,7 +15,7 @@ type tapFeedImpl struct {
 
 // Starts a TAP feed on a client connection. The events can be read from the returned channel.
 // To stop receiving events, call Close() on the feed.
-func (bucket *WalrusBucket) StartTapFeed(args sgbucket.FeedArguments) (sgbucket.MutationFeed, error) {
+func (bucket *WalrusBucket) StartTapFeed(args sgbucket.FeedArguments, dbStats *expvar.Map) (sgbucket.MutationFeed, error) {
 	channel := make(chan sgbucket.FeedEvent, 10)
 	feed := &tapFeedImpl{
 		bucket:  bucket,
@@ -41,9 +45,9 @@ func (bucket *WalrusBucket) StartTapFeed(args sgbucket.FeedArguments) (sgbucket.
 }
 
 // Until a full DCP implementation is available, walrus wraps tap feed to invoke callback
-func (bucket *WalrusBucket) StartDCPFeed(args sgbucket.FeedArguments, callback sgbucket.FeedEventCallbackFunc) error {
+func (bucket *WalrusBucket) StartDCPFeed(args sgbucket.FeedArguments, callback sgbucket.FeedEventCallbackFunc, dbStats *expvar.Map) error {
 
-	tapFeed, err := bucket.StartTapFeed(args)
+	tapFeed, err := bucket.StartTapFeed(args, dbStats)
 	if err != nil {
 		return err
 	}
