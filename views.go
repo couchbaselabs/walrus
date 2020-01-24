@@ -22,6 +22,16 @@ type walrusView struct {
 // Stores view functions for use by a Bucket.
 type walrusDesignDoc map[string]*walrusView
 
+func (bucket *WalrusBucket) GetDDocs(into interface{}) error {
+	bucket.lock.Lock()
+	defer bucket.lock.Unlock()
+
+	designs := bucket.DesignDocs
+	// Have to roundtrip thru JSON to return it as arbitrary interface{}:
+	raw, _ := json.Marshal(designs)
+	return json.Unmarshal(raw, into)
+}
+
 func (bucket *WalrusBucket) GetDDoc(docname string, into interface{}) error {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
