@@ -361,6 +361,10 @@ func (bucket *WalrusBucket) WriteCasWithXattr(k string, xattrKey string, exp uin
 	return 0, errors.New("WriteCasWithXattr not implemented for walrus")
 }
 
+func (bucket *WalrusBucket) WriteWithXattr(k string, xattrKey string, exp uint32, cas uint64, value []byte, xattrValue []byte, isDelete bool, deleteBody bool) (casOut uint64, err error){
+	return 0, errors.New("WriteWithXattr not implemented for walrus")
+}
+
 func (bucket *WalrusBucket) GetWithXattr(k string, xattrKey string, rv interface{}, xv interface{}) (cas uint64, err error) {
 	return 0, errors.New("GetWithXattr not implemented for walrus")
 }
