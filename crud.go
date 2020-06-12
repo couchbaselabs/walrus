@@ -22,6 +22,7 @@ import (
 	"time"
 
 	sgbucket "github.com/couchbase/sg-bucket"
+	"github.com/google/uuid"
 )
 
 const (
@@ -47,6 +48,7 @@ type walrusData struct {
 // http://ihasabucket.com
 type WalrusBucket struct {
 	name         string                     // Name of the bucket
+	uuid         string                     // UUID of the bucket
 	path         string                     // Filesystem path, if it's persistent
 	saving       bool                       // Is a pending save in progress?
 	lastSeqSaved uint64                     // LastSeq at time of last save
@@ -72,6 +74,7 @@ func NewBucket(bucketName string) *WalrusBucket {
 	logg("NewBucket %s", bucketName)
 	bucket := &WalrusBucket{
 		name: bucketName,
+		uuid: uuid.New().String(),
 		walrusData: walrusData{
 			Docs:       map[string]*walrusDoc{},
 			DesignDocs: map[string]*sgbucket.DesignDoc{},
@@ -659,7 +662,7 @@ func (bucket *WalrusBucket) CouchbaseServerVersion() (major uint64, minor uint64
 }
 
 func (bucket *WalrusBucket) UUID() (string, error) {
-	return "error", fmt.Errorf("Walrus bucket has no UUID")
+	return bucket.uuid, nil
 }
 
 func (bucket *WalrusBucket) IsSupported(feature sgbucket.BucketFeature) bool {
