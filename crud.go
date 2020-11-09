@@ -364,7 +364,7 @@ func (bucket *WalrusBucket) WriteCasWithXattr(k string, xattrKey string, exp uin
 	return 0, errors.New("WriteCasWithXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) WriteWithXattr(k string, xattrKey string, exp uint32, cas uint64, value []byte, xattrValue []byte, isDelete bool, deleteBody bool) (casOut uint64, err error){
+func (bucket *WalrusBucket) WriteWithXattr(k string, xattrKey string, exp uint32, cas uint64, value []byte, xattrValue []byte, isDelete bool, deleteBody bool) (casOut uint64, err error) {
 	return 0, errors.New("WriteWithXattr not implemented for walrus")
 }
 
@@ -665,13 +665,13 @@ func (bucket *WalrusBucket) UUID() (string, error) {
 	return bucket.uuid, nil
 }
 
-func (bucket *WalrusBucket) IsSupported(feature sgbucket.BucketFeature) bool {
+func (bucket *WalrusBucket) IsSupported(feature sgbucket.DataStoreFeature) bool {
 	switch feature {
-	case sgbucket.BucketFeatureXattrs:
+	case sgbucket.DataStoreFeatureXattrs:
 		return false
-	case sgbucket.BucketFeatureN1ql:
+	case sgbucket.DataStoreFeatureN1ql:
 		return false
-	case sgbucket.BucketFeatureCrc32cMacroExpansion:
+	case sgbucket.DataStoreFeatureCrc32cMacroExpansion:
 		return false
 	default:
 		return false
