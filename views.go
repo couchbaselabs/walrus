@@ -22,31 +22,36 @@ type walrusView struct {
 // Stores view functions for use by a Bucket.
 type walrusDesignDoc map[string]*walrusView
 
-func (bucket *WalrusBucket) GetDDocs(into interface{}) error {
+func (bucket *WalrusBucket) GetDDocs() (ddocs map[string]sgbucket.DesignDoc, err error) {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
 	designs := bucket.DesignDocs
-	// Have to roundtrip thru JSON to return it as arbitrary interface{}:
+
+	// Roundtrip thru JSON to return it as mutable copy:
 	raw, _ := json.Marshal(designs)
-	return json.Unmarshal(raw, into)
+	err = json.Unmarshal(raw, &ddocs)
+	return ddocs, err
 }
 
-func (bucket *WalrusBucket) GetDDoc(docname string, into interface{}) error {
+func (bucket *WalrusBucket) GetDDoc(docname string) (ddoc sgbucket.DesignDoc, err error) {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
 	design := bucket.DesignDocs[docname]
 	if design == nil {
-		return sgbucket.MissingError{docname}
+		return ddoc, sgbucket.MissingError{docname}
 	}
-	// Have to roundtrip thru JSON to return it as arbitrary interface{}:
+
+	// Roundtrip thru JSON to return it as mutable copy:
 	raw, _ := json.Marshal(design)
-	return json.Unmarshal(raw, into)
+	err = json.Unmarshal(raw, &ddoc)
+
+	return ddoc, nil
 }
 
-func (bucket *WalrusBucket) PutDDoc(docname string, value interface{}) error {
-	design, err := CheckDDoc(value)
+func (bucket *WalrusBucket) PutDDoc(docname string, design *sgbucket.DesignDoc) error {
+	err := CheckDDoc(design)
 	if err != nil {
 		return err
 	}
@@ -98,23 +103,12 @@ func (bucket *WalrusBucket) _compileDesignDoc(docname string, design *sgbucket.D
 }
 
 // Validates a design document.
-func CheckDDoc(value interface{}) (*sgbucket.DesignDoc, error) {
-	source, err := json.Marshal(value)
-	if err != nil {
-		return nil, err
-	}
-
-	var design sgbucket.DesignDoc
-	if err := json.Unmarshal(source, &design); err != nil {
-		return nil, err
-	}
-
+func CheckDDoc(design *sgbucket.DesignDoc) error {
 	if design.Language != "" && design.Language != "javascript" {
-		return nil, fmt.Errorf("Walrus design docs don't support language %q",
+		return fmt.Errorf("Walrus design docs don't support language %q",
 			design.Language)
 	}
-
-	return &design, nil
+	return nil
 }
 
 // Looks up a walrusView, and its current index if it's up-to-date enough.
