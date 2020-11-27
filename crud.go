@@ -535,7 +535,7 @@ func (bucket *WalrusBucket) WriteUpdate(k string, exp uint32, callback sgbucket.
 
 func (bucket *WalrusBucket) Update(k string, exp uint32, callback sgbucket.UpdateFunc) (casOut uint64, err error) {
 	writeCallback := func(current []byte) (updated []byte, opts sgbucket.WriteOptions, expiry *uint32, err error) {
-		updated, expiry, err = callback(current)
+		updated, expiry, _, err = callback(current)
 		return updated, opts, expiry, err
 	}
 	return bucket.WriteUpdate(k, exp, writeCallback)
