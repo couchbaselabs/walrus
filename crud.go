@@ -677,3 +677,16 @@ func (bucket *WalrusBucket) IsSupported(feature sgbucket.DataStoreFeature) bool 
 		return false
 	}
 }
+
+func (bucket *WalrusBucket) IsError(err error, errorType sgbucket.DataStoreErrorType) bool {
+	if err == nil {
+		return false
+	}
+	switch errorType {
+	case sgbucket.KeyNotFoundError:
+		_, ok := err.(sgbucket.MissingError)
+		return ok
+	default:
+		return false
+	}
+}

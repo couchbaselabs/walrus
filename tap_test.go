@@ -3,8 +3,8 @@ package walrus
 import (
 	"testing"
 
-	"github.com/couchbase/sg-bucket"
-	"github.com/couchbaselabs/go.assert"
+	sgbucket "github.com/couchbase/sg-bucket"
+	assert "github.com/couchbaselabs/go.assert"
 )
 
 func TestBackfill(t *testing.T) {
@@ -14,7 +14,7 @@ func TestBackfill(t *testing.T) {
 	bucket.Add("baker", 0, "B")
 	bucket.Add("charlie", 0, "C")
 
-	feed, err := bucket.StartTapFeed(sgbucket.FeedArguments{Backfill: 0, Dump: true})
+	feed, err := bucket.StartTapFeed(sgbucket.FeedArguments{Backfill: 0, Dump: true}, nil)
 	assertNoError(t, err, "StartTapFeed failed")
 	assert.True(t, feed != nil)
 
@@ -43,7 +43,7 @@ func TestMutations(t *testing.T) {
 	bucket.Add("baker", 0, "B")
 	bucket.Add("charlie", 0, "C")
 
-	feed, err := bucket.StartTapFeed(sgbucket.FeedArguments{Backfill: sgbucket.FeedNoBackfill})
+	feed, err := bucket.StartTapFeed(sgbucket.FeedArguments{Backfill: sgbucket.FeedNoBackfill}, nil)
 	assertNoError(t, err, "StartTapFeed failed")
 	assert.True(t, feed != nil)
 	defer feed.Close()

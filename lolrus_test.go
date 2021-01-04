@@ -11,14 +11,15 @@ package walrus
 
 import (
 	"encoding/json"
+	"errors"
 	"sync"
 	"testing"
 
-	"github.com/couchbase/sg-bucket"
-	"github.com/couchbaselabs/go.assert"
+	sgbucket "github.com/couchbase/sg-bucket"
+	assert "github.com/couchbaselabs/go.assert"
 )
 
-func setJSON(bucket sgbucket.Bucket, docid string, jsonDoc string) error {
+func setJSON(bucket sgbucket.DataStore, docid string, jsonDoc string) error {
 	var obj interface{}
 	err := json.Unmarshal([]byte(jsonDoc), &obj)
 	if err != nil {
@@ -110,11 +111,11 @@ func TestView(t *testing.T) {
 	ddoc := sgbucket.DesignDoc{Views: sgbucket.ViewMap{"view1": sgbucket.ViewDef{Map: `function(doc){if (doc.key) emit(doc.key,doc.value)}`}}}
 	bucket := NewBucket("buckit")
 	defer bucket.Close()
-	err := bucket.PutDDoc("docname", ddoc)
+	err := bucket.PutDDoc("docname", &ddoc)
 	assertNoError(t, err, "PutDDoc failed")
 
 	var echo sgbucket.DesignDoc
-	err = bucket.GetDDoc("docname", &echo)
+	echo, err = bucket.GetDDoc("docname")
 	assert.DeepEquals(t, echo, ddoc)
 
 	setJSON(bucket, "doc1", `{"key": "k1", "value": "v1"}`)
@@ -180,17 +181,31 @@ func TestView(t *testing.T) {
 
 	// Delete the design doc:
 	assertNoError(t, bucket.DeleteDDoc("docname"), "DeleteDDoc")
-	assert.DeepEquals(t, bucket.GetDDoc("docname", &echo), sgbucket.MissingError{"docname"})
+	_, getErr := bucket.GetDDoc("docname")
+	assert.True(t, errors.Is(getErr, sgbucket.MissingError{"docname"}))
 }
 
 func TestCheckDDoc(t *testing.T) {
 	ddoc := sgbucket.DesignDoc{Views: sgbucket.ViewMap{"view1": sgbucket.ViewDef{Map: `function(doc){if (doc.key) emit(doc.key,doc.value)}`}}}
-	_, err := CheckDDoc(&ddoc)
-	assertNoError(t, err, "CheckDDoc should have worked")
+	assertNoError(t, CheckDDoc(&ddoc), "CheckDDoc should have worked")
 
 	ddoc = sgbucket.DesignDoc{Language: "go"}
-	_, err = CheckDDoc(&ddoc)
+	err := CheckDDoc(&ddoc)
 	assertTrue(t, err != nil, "CheckDDoc should have rejected non-JS")
+}
+
+func TestGetDDocs(t *testing.T) {
+	ddoc := sgbucket.DesignDoc{Views: sgbucket.ViewMap{"view1": sgbucket.ViewDef{Map: `function(doc){if (doc.key) emit(doc.key,doc.value)}`}}}
+	bucket := NewBucket("buckit")
+	defer bucket.Close()
+	err := bucket.PutDDoc("docname", &ddoc)
+	assertNoError(t, err, "PutDDoc docnamefailed")
+	err = bucket.PutDDoc("docname2", &ddoc)
+	assertNoError(t, err, "PutDDoc docname2failed")
+
+	ddocs, getErr := bucket.GetDDocs()
+	assertNoError(t, getErr, "GetDDocs failed")
+	assert.Equals(t, 2, len(ddocs))
 }
 
 func TestGetBulkRaw(t *testing.T) {
