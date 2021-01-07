@@ -39,7 +39,10 @@ func (bucket *WalrusBucket) StartTapFeed(args sgbucket.FeedArguments, dbStats *e
 		bucket.lock.Unlock()
 	}
 
-	go feed.run()
+	go func() {
+		defer close(args.DoneChan)
+		feed.run()
+	}()
 
 	return feed, nil
 }
@@ -53,6 +56,7 @@ func (bucket *WalrusBucket) StartDCPFeed(args sgbucket.FeedArguments, callback s
 	}
 
 	go func() {
+		defer close(args.DoneChan)
 		for event := range tapFeed.Events() {
 			callback(event)
 		}
