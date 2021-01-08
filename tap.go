@@ -53,9 +53,11 @@ func (bucket *WalrusBucket) StartDCPFeed(args sgbucket.FeedArguments, callback s
 	}
 
 	go func() {
-		defer close(args.DoneChan)
 		for event := range tapFeed.Events() {
 			callback(event)
+		}
+		if args.DoneChan != nil {
+			close(args.DoneChan)
 		}
 	}()
 	return nil
