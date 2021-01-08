@@ -39,10 +39,7 @@ func (bucket *WalrusBucket) StartTapFeed(args sgbucket.FeedArguments, dbStats *e
 		bucket.lock.Unlock()
 	}
 
-	go func() {
-		defer close(args.DoneChan)
-		feed.run()
-	}()
+	go feed.run()
 
 	return feed, nil
 }
