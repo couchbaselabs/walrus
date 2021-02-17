@@ -380,7 +380,7 @@ func (bucket *WalrusBucket) GetXattr(k string, xattrKey string, xv interface{}) 
 	return 0, errors.New("GetXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) WriteXattr(k string, xattrKey string, v interface{}) (casOut uint64, err error){
+func (bucket *WalrusBucket) WriteXattr(docKey string, xattrKey string, xattrVal interface{}) (casOut uint64, err error){
 	return 0, errors.New("WriteXattr not implemented for walrus")
 }
 
