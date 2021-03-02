@@ -368,7 +368,7 @@ func (bucket *WalrusBucket) WriteWithXattr(k string, xattrKey string, exp uint32
 	return 0, errors.New("WriteWithXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) GetWithXattr(k string, xattrKey string, rv interface{}, xv interface{}) (cas uint64, err error) {
+func (bucket *WalrusBucket) GetWithXattr(k string, xattrKey string, userXattrKey string, rv interface{}, xv interface{}, uxv interface{}) (cas uint64, err error) {
 	return 0, errors.New("GetWithXattr not implemented for walrus")
 }
 
@@ -380,7 +380,7 @@ func (bucket *WalrusBucket) GetXattr(k string, xattrKey string, xv interface{}) 
 	return 0, errors.New("GetXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) WriteUpdateWithXattr(k string, xattrKey string, exp uint32, previous *sgbucket.BucketDocument, callback sgbucket.WriteUpdateWithXattrFunc) (casOut uint64, err error) {
+func (bucket *WalrusBucket) WriteUpdateWithXattr(k string, xattrKey string, userXattrKey string, exp uint32, previous *sgbucket.BucketDocument, callback sgbucket.WriteUpdateWithXattrFunc) (casOut uint64, err error) {
 	return 0, errors.New("WriteUpdateWithXattr not implemented for walrus")
 }
 
