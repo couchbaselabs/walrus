@@ -384,6 +384,10 @@ func (bucket *WalrusBucket) WriteUpdateWithXattr(k string, xattrKey string, user
 	return 0, errors.New("WriteUpdateWithXattr not implemented for walrus")
 }
 
+func (bucket *WalrusBucket) SubdocInsert(docID string, fieldPath string,cas uint64, value interface{}) error{
+	return errors.New("SubdocInsert not implemented for walrus")
+}
+
 func (bucket *WalrusBucket) getData(v interface{}, isJSON bool) (data []byte, err error) {
 	if !isJSON {
 		if v != nil {
@@ -667,6 +671,8 @@ func (bucket *WalrusBucket) UUID() (string, error) {
 
 func (bucket *WalrusBucket) IsSupported(feature sgbucket.DataStoreFeature) bool {
 	switch feature {
+	case sgbucket.DataStoreFeatureSubdocOperations:
+		return false
 	case sgbucket.DataStoreFeatureXattrs:
 		return false
 	case sgbucket.DataStoreFeatureN1ql:
