@@ -254,7 +254,14 @@ func (bucket *WalrusBucket) Get(k string, rv interface{}) (cas uint64, err error
 	if err != nil {
 		return 0, err
 	}
-	return cas, json.Unmarshal(raw, rv)
+
+	switch typedRV := rv.(type) {
+	case *[]byte:
+		*typedRV = copySlice(raw)
+		return cas, nil
+	default:
+		return cas, json.Unmarshal(raw, rv)
+	}
 }
 
 func (bucket *WalrusBucket) GetBulkRaw(keys []string) (map[string][]byte, error) {
@@ -384,7 +391,7 @@ func (bucket *WalrusBucket) WriteUpdateWithXattr(k string, xattrKey string, user
 	return 0, errors.New("WriteUpdateWithXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) SubdocInsert(docID string, fieldPath string,cas uint64, value interface{}) error{
+func (bucket *WalrusBucket) SubdocInsert(docID string, fieldPath string, cas uint64, value interface{}) error {
 	return errors.New("SubdocInsert not implemented for walrus")
 }
 
@@ -393,9 +400,23 @@ func (bucket *WalrusBucket) getData(v interface{}, isJSON bool) (data []byte, er
 		if v != nil {
 			data = copySlice(v.([]byte))
 		}
-	} else {
+		return data, nil
+	}
+
+	// Check for already marshalled JSON
+	switch typedVal := v.(type) {
+	case []byte:
+		if typedVal != nil {
+			data = copySlice(typedVal)
+		}
+	case *[]byte:
+		if typedVal != nil {
+			data = copySlice(*typedVal)
+		}
+	default:
 		data, err = json.Marshal(v)
 	}
+
 	return data, err
 }
 

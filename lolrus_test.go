@@ -10,8 +10,10 @@
 package walrus
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 
@@ -365,6 +367,72 @@ func TestRemove(t *testing.T) {
 	assertTrue(t, err == nil, "Valid cas should not have returned error on remove.")
 	assertTrue(t, newCas != uint64(0), "Remove should return non-zero cas")
 
+}
+
+// Test read and write of json as []byte
+func TestNonRawBytes(t *testing.T) {
+
+	bucket := NewBucket("byteCheckBucket")
+
+	defer bucket.Close()
+
+	byteBody := []byte(`{"value":"value1"}`)
+
+	// Add with WriteCas - JSON doc as []byte and *[]byte
+	cas, err := bucket.WriteCas("writeCas1", 0, 0, 0, byteBody, 0)
+	assertNoError(t, err, "WriteCas []byte")
+	cas, err = bucket.WriteCas("writeCas2", 0, 0, 0, &byteBody, 0)
+	assertNoError(t, err, "WriteCas *[]byte")
+
+	// Add with Add - JSON doc as []byte and *[]byte
+	added, err := bucket.Add("add1", 0, byteBody)
+	assertNoError(t, err, "Add []byte")
+	assertTrue(t, added, "Add []byte not added")
+	added, err = bucket.Add("add2", 0, &byteBody)
+	assertNoError(t, err, "Add *[]byte")
+	assertTrue(t, added, "Add *[]byte not added")
+
+	// Set - JSON doc as []byte
+	// Set - JSON doc as *[]byte
+	// Add with Add - JSON doc as []byte and *[]byte
+	err = bucket.Set("set1", 0, byteBody)
+	assertNoError(t, err, "Set []byte")
+	err = bucket.Set("set2", 0, &byteBody)
+	assertNoError(t, err, "Set *[]byte")
+
+	keySet := []string{"writeCas1", "writeCas2", "add1", "add2", "set1", "set2"}
+	for _, key := range keySet {
+		// Verify retrieval as map[string]interface{}
+		var result map[string]interface{}
+		cas, err = bucket.Get(key, &result)
+		assertNoError(t, err, fmt.Sprintf("Error for Get %s", key))
+		assertTrue(t, cas > 0, fmt.Sprintf("CAS is zero for key: %s", key))
+		assertTrue(t, result != nil, fmt.Sprintf("result is nil for key: %s", key))
+		if result != nil {
+			assert.Equals(t, result["value"], "value1")
+		}
+
+		// Verify retrieval as *[]byte
+		var rawResult []byte
+		cas, err = bucket.Get(key, &rawResult)
+		assertNoError(t, err, fmt.Sprintf("Error for Get %s", key))
+		assertTrue(t, cas > 0, fmt.Sprintf("CAS is zero for key: %s", key))
+		assertTrue(t, result != nil, fmt.Sprintf("result is nil for key: %s", key))
+		if result != nil {
+			matching := bytes.Compare(rawResult, byteBody)
+			assert.Equals(t, matching, 0)
+		}
+	}
+
+	// Verify values are stored as JSON and can be retrieved via view
+	ddoc := sgbucket.DesignDoc{Views: sgbucket.ViewMap{"view1": sgbucket.ViewDef{Map: `function(doc){if (doc.value) emit(doc.key,doc.value)}`}}}
+	err = bucket.PutDDoc("docname", &ddoc)
+	assertNoError(t, err, "PutDDoc failed")
+
+	options := map[string]interface{}{"stale": false}
+	result, err := bucket.View("docname", "view1", options)
+	assertNoError(t, err, "View call failed")
+	assert.Equals(t, result.TotalRows, len(keySet))
 }
 
 //////// HELPERS:
