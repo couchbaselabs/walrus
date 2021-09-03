@@ -254,7 +254,16 @@ func (bucket *WalrusBucket) Get(k string, rv interface{}) (cas uint64, err error
 	if err != nil {
 		return 0, err
 	}
-	return cas, json.Unmarshal(raw, rv)
+
+	switch rv.(type) {
+	case []byte, *[]byte:
+		rawValue := copySlice(raw)
+		rv = &rawValue
+		return cas, nil
+	default:
+		return cas, json.Unmarshal(raw, rv)
+	}
+
 }
 
 func (bucket *WalrusBucket) GetBulkRaw(keys []string) (map[string][]byte, error) {
@@ -384,7 +393,7 @@ func (bucket *WalrusBucket) WriteUpdateWithXattr(k string, xattrKey string, user
 	return 0, errors.New("WriteUpdateWithXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) SubdocInsert(docID string, fieldPath string,cas uint64, value interface{}) error{
+func (bucket *WalrusBucket) SubdocInsert(docID string, fieldPath string, cas uint64, value interface{}) error {
 	return errors.New("SubdocInsert not implemented for walrus")
 }
 
@@ -483,7 +492,14 @@ func (bucket *WalrusBucket) AddRaw(k string, exp uint32, v []byte) (added bool, 
 }
 
 func (bucket *WalrusBucket) Add(k string, exp uint32, v interface{}) (added bool, err error) {
-	return bucket.add(k, exp, v, 0)
+	switch tv := v.(type) {
+	case []byte:
+		return bucket.AddRaw(k, exp, tv)
+	case *[]byte:
+		return bucket.AddRaw(k, exp, *tv)
+	default:
+		return bucket.add(k, exp, v, 0)
+	}
 }
 
 func (bucket *WalrusBucket) SetRaw(k string, exp uint32, v []byte) error {
@@ -494,7 +510,14 @@ func (bucket *WalrusBucket) SetRaw(k string, exp uint32, v []byte) error {
 }
 
 func (bucket *WalrusBucket) Set(k string, exp uint32, v interface{}) error {
-	return bucket.Write(k, 0, exp, v, 0)
+	switch tv := v.(type) {
+	case []byte:
+		return bucket.SetRaw(k, exp, tv)
+	case *[]byte:
+		return bucket.SetRaw(k, exp, *tv)
+	default:
+		return bucket.Write(k, 0, exp, v, 0)
+	}
 }
 
 func (bucket *WalrusBucket) Delete(k string) error {
