@@ -391,6 +391,10 @@ func (bucket *WalrusBucket) WriteUpdateWithXattr(k string, xattrKey string, user
 	return 0, errors.New("WriteUpdateWithXattr not implemented for walrus")
 }
 
+func (bucket *WalrusBucket) WriteXattrUpdate(k string, xattrKey string, callback sgbucket.WriteXattrUpdate) (casOut uint64, err error){
+	return 0, errors.New("WriteUpdateWithXattr not implemented for walrus")
+}
+
 func (bucket *WalrusBucket) SubdocInsert(docID string, fieldPath string, cas uint64, value interface{}) error {
 	return errors.New("SubdocInsert not implemented for walrus")
 }
