@@ -399,8 +399,8 @@ func (bucket *WalrusBucket) RemoveXattr(k string, xattrKey string, cas uint64) e
 	return  errors.New("RemoveXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) DeleteXattr(k string, xattrKey string) error {
-	return  errors.New("DeleteXattr not implemented for walrus")
+func (bucket *WalrusBucket) DeleteXattrs(k string, xattrKeys... string) error {
+	return  errors.New("DeleteXattrs not implemented for walrus")
 }
 
 func (bucket *WalrusBucket) SubdocInsert(docID string, fieldPath string, cas uint64, value interface{}) error {
