@@ -190,6 +190,8 @@ func (bucket *WalrusBucket) Close() {
 }
 
 func (bucket *WalrusBucket) CloseAndDelete() error {
+	time.Sleep(time.Second * 5)
+
 	path := bucket.path
 	bucket.Close()
 	if path == "" {
