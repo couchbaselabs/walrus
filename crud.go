@@ -387,6 +387,14 @@ func (bucket *WalrusBucket) GetXattr(k string, xattrKey string, xv interface{}) 
 	return 0, errors.New("GetXattr not implemented for walrus")
 }
 
+func (bucket *WalrusBucket) GetSubDocRaw(k string, subdocKey string)(value []byte, casOut uint64, err error){
+	return nil, 0, errors.New("GetSubDocRaw not implemented for walrus")
+}
+
+func (bucket *WalrusBucket) WriteSubDoc(k string, subdocKey string, value []byte)(casOut uint64, err error){
+	return 0, errors.New("WriteSubdoc not implemented for walrus")
+}
+
 func (bucket *WalrusBucket) WriteUpdateWithXattr(k string, xattrKey string, userXattrKey string, exp uint32, previous *sgbucket.BucketDocument, callback sgbucket.WriteUpdateWithXattrFunc) (casOut uint64, err error) {
 	return 0, errors.New("WriteUpdateWithXattr not implemented for walrus")
 }
