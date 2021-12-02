@@ -391,7 +391,7 @@ func (bucket *WalrusBucket) GetSubDocRaw(k string, subdocKey string)(value []byt
 	return nil, 0, errors.New("GetSubDocRaw not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) WriteSubDoc(k string, subdocKey string, value []byte)(casOut uint64, err error){
+func (bucket *WalrusBucket) WriteSubDoc(k string, subdocKey string, cas uint64, value []byte)(casOut uint64, err error){
 	return 0, errors.New("WriteSubdoc not implemented for walrus")
 }
 
