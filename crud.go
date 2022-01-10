@@ -527,14 +527,14 @@ func (bucket *WalrusBucket) Add(k string, exp uint32, v interface{}) (added bool
 	return bucket.add(k, exp, v, 0)
 }
 
-func (bucket *WalrusBucket) SetRaw(k string, exp uint32, v []byte) error {
+func (bucket *WalrusBucket) SetRaw(k string, exp uint32, _ *sgbucket.UpsertOptions, v []byte) error {
 	if v == nil {
 		panic("nil value")
 	}
 	return bucket.Write(k, 0, exp, v, sgbucket.Raw)
 }
 
-func (bucket *WalrusBucket) Set(k string, exp uint32, v interface{}) error {
+func (bucket *WalrusBucket) Set(k string, exp uint32, _ *sgbucket.UpsertOptions, v interface{}) error {
 	return bucket.Write(k, 0, exp, v, 0)
 }
 
