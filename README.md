@@ -22,7 +22,6 @@ Walrus is not fast or scalable. It's not supposed to be. It's supposed to be the
 
 * Direct CAS operations (only the higher-level Update call)
 * Document expiration
-* Upsert Options on `Set` and `SetRaw` KV operations
 * Reduce functions in views
 * Offsets or reverse order in queries
 
