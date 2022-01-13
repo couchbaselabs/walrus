@@ -395,7 +395,7 @@ func (bucket *WalrusBucket) WriteSubDoc(k string, subdocKey string, cas uint64, 
 	return 0, errors.New("WriteSubdoc not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) WriteUpdateWithXattr(k string, xattrKey string, userXattrKey string, exp uint32, previous *sgbucket.BucketDocument, callback sgbucket.WriteUpdateWithXattrFunc) (casOut uint64, err error) {
+func (bucket *WalrusBucket) WriteUpdateWithXattr(k string, xattrKey string, userXattrKey string, exp uint32, opts *sgbucket.MutateInOptions, previous *sgbucket.BucketDocument, callback sgbucket.WriteUpdateWithXattrFunc) (casOut uint64, err error) {
 	return 0, errors.New("WriteUpdateWithXattr not implemented for walrus")
 }
 
