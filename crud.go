@@ -367,11 +367,11 @@ func (bucket *WalrusBucket) SetBulk(entries []*sgbucket.BulkSetEntry) (err error
 	return nil
 }
 
-func (bucket *WalrusBucket) WriteCasWithXattr(k string, xattrKey string, exp uint32, cas uint64, v interface{}, xv interface{}) (casOut uint64, err error) {
+func (bucket *WalrusBucket) WriteCasWithXattr(k string, xattrKey string, exp uint32, cas uint64,opts *sgbucket.MutateInOptions, v interface{}, xv interface{}) (casOut uint64, err error) {
 	return 0, errors.New("WriteCasWithXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) WriteWithXattr(k string, xattrKey string, exp uint32, cas uint64, value []byte, xattrValue []byte, isDelete bool, deleteBody bool) (casOut uint64, err error) {
+func (bucket *WalrusBucket) WriteWithXattr(k string, xattrKey string, exp uint32, cas uint64, opts *sgbucket.MutateInOptions,value []byte, xattrValue []byte, isDelete bool, deleteBody bool) (casOut uint64, err error) {
 	return 0, errors.New("WriteWithXattr not implemented for walrus")
 }
 
