@@ -367,11 +367,11 @@ func (bucket *WalrusBucket) SetBulk(entries []*sgbucket.BulkSetEntry) (err error
 	return nil
 }
 
-func (bucket *WalrusBucket) WriteCasWithXattr(k string, xattrKey string, exp uint32, cas uint64, v interface{}, xv interface{}) (casOut uint64, err error) {
+func (bucket *WalrusBucket) WriteCasWithXattr(k string, xattrKey string, exp uint32, cas uint64, opts *sgbucket.MutateInOptions, v interface{}, xv interface{}) (casOut uint64, err error) {
 	return 0, errors.New("WriteCasWithXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) WriteWithXattr(k string, xattrKey string, exp uint32, cas uint64, value []byte, xattrValue []byte, isDelete bool, deleteBody bool) (casOut uint64, err error) {
+func (bucket *WalrusBucket) WriteWithXattr(k string, xattrKey string, exp uint32, cas uint64, opts *sgbucket.MutateInOptions,value []byte, xattrValue []byte, isDelete bool, deleteBody bool) (casOut uint64, err error) {
 	return 0, errors.New("WriteWithXattr not implemented for walrus")
 }
 
@@ -395,7 +395,7 @@ func (bucket *WalrusBucket) WriteSubDoc(k string, subdocKey string, cas uint64, 
 	return 0, errors.New("WriteSubdoc not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) WriteUpdateWithXattr(k string, xattrKey string, userXattrKey string, exp uint32, previous *sgbucket.BucketDocument, callback sgbucket.WriteUpdateWithXattrFunc) (casOut uint64, err error) {
+func (bucket *WalrusBucket) WriteUpdateWithXattr(k string, xattrKey string, userXattrKey string, exp uint32, opts *sgbucket.MutateInOptions, previous *sgbucket.BucketDocument, callback sgbucket.WriteUpdateWithXattrFunc) (casOut uint64, err error) {
 	return 0, errors.New("WriteUpdateWithXattr not implemented for walrus")
 }
 
@@ -527,14 +527,14 @@ func (bucket *WalrusBucket) Add(k string, exp uint32, v interface{}) (added bool
 	return bucket.add(k, exp, v, 0)
 }
 
-func (bucket *WalrusBucket) SetRaw(k string, exp uint32, v []byte) error {
+func (bucket *WalrusBucket) SetRaw(k string, exp uint32, _ *sgbucket.UpsertOptions, v []byte) error {
 	if v == nil {
 		panic("nil value")
 	}
 	return bucket.Write(k, 0, exp, v, sgbucket.Raw)
 }
 
-func (bucket *WalrusBucket) Set(k string, exp uint32, v interface{}) error {
+func (bucket *WalrusBucket) Set(k string, exp uint32, _ *sgbucket.UpsertOptions, v interface{}) error {
 	return bucket.Write(k, 0, exp, v, 0)
 }
 
