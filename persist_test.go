@@ -34,7 +34,7 @@ func TestSave(t *testing.T) {
 	assertNoError(t, err, "couldn't load")
 	assert.DeepEquals(t, bucket2.walrusData, bucket.walrusData)
 
-	bucket.Set("key2", 0, []byte("NEWVALUE2"))
+	bucket.Set("key2", 0, nil, []byte("NEWVALUE2"))
 
 	err = bucket._save()
 	assertNoError(t, err, "couldn't re-save")

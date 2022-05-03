@@ -27,7 +27,7 @@ func setJSON(bucket sgbucket.DataStore, docid string, jsonDoc string) error {
 	if err != nil {
 		return err
 	}
-	return bucket.Set(docid, 0, obj)
+	return bucket.Set(docid, 0, nil, obj)
 }
 
 func TestDeleteThenAdd(t *testing.T) {
@@ -99,7 +99,7 @@ func TestAppend(t *testing.T) {
 	err := bucket.Append("key", []byte(" World"))
 	assert.DeepEquals(t, err, sgbucket.MissingError{"key"})
 
-	err = bucket.SetRaw("key", 0, []byte("Hello"))
+	err = bucket.SetRaw("key", 0, nil, []byte("Hello"))
 	assertNoError(t, err, "SetRaw")
 	err = bucket.Append("key", []byte(" World"))
 	assertNoError(t, err, "Append")
@@ -216,9 +216,9 @@ func TestGetBulkRaw(t *testing.T) {
 	defer bucket.Close()
 
 	// add two keys
-	err := bucket.SetRaw("key1", 0, []byte("value1"))
+	err := bucket.SetRaw("key1", 0, nil, []byte("value1"))
 	assertNoError(t, err, "SetRaw")
-	err = bucket.SetRaw("key2", 0, []byte("value2"))
+	err = bucket.SetRaw("key2", 0, nil, []byte("value2"))
 	assertNoError(t, err, "SetRaw")
 
 	// call bulk get raw
@@ -248,7 +248,7 @@ func TestGets(t *testing.T) {
 	assert.DeepEquals(t, value, "value")
 
 	// GetsRaw
-	err = bucket.SetRaw("keyraw", 0, []byte("Hello"))
+	err = bucket.SetRaw("keyraw", 0, nil, []byte("Hello"))
 	assertNoError(t, err, "SetRaw")
 
 	value, cas, err = bucket.GetRaw("keyraw")
@@ -395,9 +395,9 @@ func TestNonRawBytes(t *testing.T) {
 	// Set - JSON doc as []byte
 	// Set - JSON doc as *[]byte
 	// Add with Add - JSON doc as []byte and *[]byte
-	err = bucket.Set("set1", 0, byteBody)
+	err = bucket.Set("set1", 0, nil, byteBody)
 	assertNoError(t, err, "Set []byte")
-	err = bucket.Set("set2", 0, &byteBody)
+	err = bucket.Set("set2", 0, nil, &byteBody)
 	assertNoError(t, err, "Set *[]byte")
 
 	keySet := []string{"writeCas1", "writeCas2", "add1", "add2", "set1", "set2"}
