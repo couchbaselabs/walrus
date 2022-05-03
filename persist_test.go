@@ -10,17 +10,18 @@
 package walrus
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/couchbase/sg-bucket"
 	"github.com/couchbaselabs/go.assert"
 )
 
-const kTestPath = "/tmp/walrus_test_save.walrus"
-
 func TestSave(t *testing.T) {
-	os.Remove(kTestPath)
+	tmpdir := t.TempDir()
+	kTestPath := filepath.Join(tmpdir, "/walrus_test_save.walrus")
 
 	bucket := NewBucket("persisty")
 	defer bucket.Close()
@@ -46,7 +47,9 @@ func TestSave(t *testing.T) {
 }
 
 func TestLoadOrNew(t *testing.T) {
-	os.Remove(kTestPath)
+	tmpdir := t.TempDir()
+	kTestPath := filepath.Join(tmpdir, "/walrus_test_save.walrus")
+
 	bucket, err := load(kTestPath)
 	assertTrue(t, os.IsNotExist(err), "Unexpected error")
 
@@ -81,21 +84,21 @@ func TestBucketURLToDir(t *testing.T) {
 }
 
 func TestNewPersistentBucket(t *testing.T) {
-	os.Remove("/tmp/pool-buckit.walrus")
-	bucket, err := GetBucket("walrus:/tmp", "pool", "buckit")
+	tmpdir := t.TempDir()
+	bucket, err := GetBucket(fmt.Sprintf("walrus:%s", tmpdir), "pool", "buckit")
 	assertNoError(t, err, "NewPersistentBucket failed")
-	assert.Equals(t, bucket.path, "/tmp/pool-buckit.walrus")
+	assert.Equals(t, bucket.path, filepath.Join(tmpdir, "pool-buckit.walrus"))
 	bucket.Close()
 
 	bucket, err = GetBucket("./temp", "default", "buckit")
 	assertNoError(t, err, "NewPersistentBucket failed")
-	assert.Equals(t, bucket.path, "temp/buckit.walrus")
+	assert.Equals(t, bucket.path, filepath.Join("temp", "buckit.walrus"))
 	bucket.Close()
 }
 
 func TestWriteWithPersist(t *testing.T) {
-	os.Remove("/tmp/pool-buckit.walrus")
-	bucket, err := GetBucket("walrus:/tmp", "pool", "buckit")
+	tmpdir := t.TempDir()
+	bucket, err := GetBucket(fmt.Sprintf("walrus:%s", tmpdir), "pool", "buckit")
 	assertNoError(t, err, "NewPersistentBucket failed")
 
 	assertNoError(t, bucket.Write("key1", 0, 0, []byte("value1"), sgbucket.Raw|sgbucket.Persist), "Write failed")
