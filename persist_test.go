@@ -15,8 +15,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/couchbase/sg-bucket"
-	"github.com/couchbaselabs/go.assert"
+	sgbucket "github.com/couchbase/sg-bucket"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSave(t *testing.T) {
@@ -33,7 +33,7 @@ func TestSave(t *testing.T) {
 
 	bucket2, err := load(kTestPath)
 	assertNoError(t, err, "couldn't load")
-	assert.DeepEquals(t, bucket2.walrusData, bucket.walrusData)
+	assert.Equal(t, bucket.walrusData, bucket2.walrusData)
 
 	bucket.Set("key2", 0, nil, []byte("NEWVALUE2"))
 
@@ -43,7 +43,7 @@ func TestSave(t *testing.T) {
 	bucket2, err = load(kTestPath)
 	defer bucket2.Close()
 	assertNoError(t, err, "couldn't re-load")
-	assert.DeepEquals(t, bucket2.walrusData, bucket.walrusData)
+	assert.Equal(t, bucket.walrusData, bucket2.walrusData)
 }
 
 func TestLoadOrNew(t *testing.T) {
@@ -55,44 +55,44 @@ func TestLoadOrNew(t *testing.T) {
 
 	bucket, err = loadOrNew(kTestPath, "walrus_test_loadOrNew")
 	assertNoError(t, err, "loadOrNew failed")
-	assert.Equals(t, len(bucket.Docs), 0)
+	assert.Equal(t, 0, len(bucket.Docs))
 
 	bucket.Add("key9", 0, `{"value": 9}`)
 	bucket.Close()
 
 	bucket, err = loadOrNew(kTestPath, "walrus_test_loadOrNew")
 	assertNoError(t, err, "loadOrNew #2 failed")
-	assert.DeepEquals(t, bucket.walrusData, bucket.walrusData)
+	assert.Equal(t, bucket.walrusData, bucket.walrusData)
 	bucket.Close()
 }
 
 func TestBucketURLToDir(t *testing.T) {
-	assert.Equals(t, bucketURLToDir(""), "")
-	assert.Equals(t, bucketURLToDir("foo"), "")
-	assert.Equals(t, bucketURLToDir("/tmp"), "/tmp")
-	assert.Equals(t, bucketURLToDir("./data"), "./data")
-	assert.Equals(t, bucketURLToDir("walrus:"), "")
-	assert.Equals(t, bucketURLToDir("walrus://"), "")
-	assert.Equals(t, bucketURLToDir("walrus:///"), "")
-	assert.Equals(t, bucketURLToDir("walrus:///tmp"), "/tmp")
-	assert.Equals(t, bucketURLToDir("walrus:data/walrus"), "data/walrus")
-	assert.Equals(t, bucketURLToDir("walrus:/tmp/walrus"), "/tmp/walrus")
-	assert.Equals(t, bucketURLToDir("file:///tmp"), "/tmp")
-	assert.Equals(t, bucketURLToDir("file:data/walrus"), "data/walrus")
-	assert.Equals(t, bucketURLToDir("file:/tmp/walrus"), "/tmp/walrus")
-	assert.Equals(t, bucketURLToDir("http://example.com/tmp"), "")
+	assert.Equal(t, "", bucketURLToDir(""))
+	assert.Equal(t, "", bucketURLToDir("foo"))
+	assert.Equal(t, "/tmp", bucketURLToDir("/tmp"))
+	assert.Equal(t, "./data", bucketURLToDir("./data"))
+	assert.Equal(t, "", bucketURLToDir("walrus:"))
+	assert.Equal(t, "", bucketURLToDir("walrus://"))
+	assert.Equal(t, "", bucketURLToDir("walrus:///"))
+	assert.Equal(t, "/tmp", bucketURLToDir("walrus:///tmp"))
+	assert.Equal(t, "data/walrus", bucketURLToDir("walrus:data/walrus"))
+	assert.Equal(t, "/tmp/walrus", bucketURLToDir("walrus:/tmp/walrus"))
+	assert.Equal(t, "/tmp", bucketURLToDir("file:///tmp"))
+	assert.Equal(t, "data/walrus", bucketURLToDir("file:data/walrus"))
+	assert.Equal(t, "/tmp/walrus", bucketURLToDir("file:/tmp/walrus"))
+	assert.Equal(t, "", bucketURLToDir("http://example.com/tmp"))
 }
 
 func TestNewPersistentBucket(t *testing.T) {
 	tmpdir := t.TempDir()
 	bucket, err := GetBucket(fmt.Sprintf("walrus:%s", tmpdir), "pool", "buckit")
 	assertNoError(t, err, "NewPersistentBucket failed")
-	assert.Equals(t, bucket.path, filepath.Join(tmpdir, "pool-buckit.walrus"))
+	assert.Equal(t, filepath.Join(tmpdir, "pool-buckit.walrus"), bucket.path)
 	bucket.Close()
 
 	bucket, err = GetBucket("./temp", "default", "buckit")
 	assertNoError(t, err, "NewPersistentBucket failed")
-	assert.Equals(t, bucket.path, filepath.Join("temp", "buckit.walrus"))
+	assert.Equal(t, filepath.Join("temp", "buckit.walrus"), bucket.path)
 	bucket.Close()
 }
 
@@ -107,7 +107,7 @@ func TestWriteWithPersist(t *testing.T) {
 	bucket2, err := load(bucket.path)
 	value, _, err := bucket2.GetRaw("key1")
 	assertNoError(t, err, "Get failed")
-	assert.Equals(t, string(value), "value1")
+	assert.Equal(t, "value1", string(value))
 	bucket2.Close()
 	bucket.Close()
 }

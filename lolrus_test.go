@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	sgbucket "github.com/couchbase/sg-bucket"
-	assert "github.com/couchbaselabs/go.assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func setJSON(bucket sgbucket.DataStore, docid string, jsonDoc string) error {
@@ -36,16 +36,16 @@ func TestDeleteThenAdd(t *testing.T) {
 
 	var value interface{}
 	_, err := bucket.Get("key", &value)
-	assert.DeepEquals(t, err, sgbucket.MissingError{"key"})
+	assert.Equal(t, sgbucket.MissingError{"key"}, err)
 	added, err := bucket.Add("key", 0, "value")
 	assertNoError(t, err, "Add")
 	assert.True(t, added)
 	_, err = bucket.Get("key", &value)
 	assertNoError(t, err, "Get")
-	assert.Equals(t, value, "value")
+	assert.Equal(t, "value", value)
 	assertNoError(t, bucket.Delete("key"), "Delete")
 	_, err = bucket.Get("key", &value)
-	assert.DeepEquals(t, err, sgbucket.MissingError{"key"})
+	assert.Equal(t, sgbucket.MissingError{"key"}, err)
 	added, err = bucket.Add("key", 0, "value")
 	assertNoError(t, err, "Add")
 	assert.True(t, added)
@@ -56,19 +56,19 @@ func TestIncr(t *testing.T) {
 	defer bucket.Close()
 	count, err := bucket.Incr("count1", 1, 100, 0)
 	assertNoError(t, err, "Incr")
-	assert.Equals(t, count, uint64(100))
+	assert.Equal(t, uint64(100), count)
 
 	count, err = bucket.Incr("count1", 0, 0, 0)
 	assertNoError(t, err, "Incr")
-	assert.Equals(t, count, uint64(100))
+	assert.Equal(t, uint64(100), count)
 
 	count, err = bucket.Incr("count1", 10, 100, 0)
 	assertNoError(t, err, "Incr")
-	assert.Equals(t, count, uint64(110))
+	assert.Equal(t, uint64(110), count)
 
 	count, err = bucket.Incr("count1", 0, 0, 0)
 	assertNoError(t, err, "Incr")
-	assert.Equals(t, count, uint64(110))
+	assert.Equal(t, uint64(110), count)
 }
 
 // Spawns 1000 goroutines that 'simultaneously' use Incr to increment the same counter by 1.
@@ -89,7 +89,7 @@ func TestIncrAtomic(t *testing.T) {
 	waiters.Wait()
 	value, err := bucket.Incr("key", 0, 0, 0)
 	assertNoError(t, err, "Incr")
-	assert.Equals(t, int(value), numIncrements*(numIncrements+1)/2)
+	assert.Equal(t, numIncrements*(numIncrements+1)/2, int(value))
 }
 
 func TestAppend(t *testing.T) {
@@ -97,7 +97,7 @@ func TestAppend(t *testing.T) {
 	defer bucket.Close()
 
 	err := bucket.Append("key", []byte(" World"))
-	assert.DeepEquals(t, err, sgbucket.MissingError{"key"})
+	assert.Equal(t, sgbucket.MissingError{"key"}, err)
 
 	err = bucket.SetRaw("key", 0, nil, []byte("Hello"))
 	assertNoError(t, err, "SetRaw")
@@ -105,7 +105,7 @@ func TestAppend(t *testing.T) {
 	assertNoError(t, err, "Append")
 	value, _, err := bucket.GetRaw("key")
 	assertNoError(t, err, "GetRaw")
-	assert.DeepEquals(t, value, []byte("Hello World"))
+	assert.Equal(t, []byte("Hello World"), value)
 }
 
 // Create a simple view and run it on some documents
@@ -118,7 +118,7 @@ func TestView(t *testing.T) {
 
 	var echo sgbucket.DesignDoc
 	echo, err = bucket.GetDDoc("docname")
-	assert.DeepEquals(t, echo, ddoc)
+	assert.Equal(t, ddoc, echo)
 
 	setJSON(bucket, "doc1", `{"key": "k1", "value": "v1"}`)
 	setJSON(bucket, "doc2", `{"key": "k2", "value": "v2"}`)
@@ -133,53 +133,53 @@ func TestView(t *testing.T) {
 	options := map[string]interface{}{"stale": false}
 	result, err := bucket.View("docname", "view1", options)
 	assertNoError(t, err, "View call failed")
-	assert.Equals(t, result.TotalRows, 5)
-	assert.DeepEquals(t, result.Rows[0], &sgbucket.ViewRow{ID: "doc3", Key: 17.0, Value: []interface{}{"v3"}})
-	assert.DeepEquals(t, result.Rows[1], &sgbucket.ViewRow{ID: "doc1", Key: "k1", Value: "v1"})
-	assert.DeepEquals(t, result.Rows[2], &sgbucket.ViewRow{ID: "doc2", Key: "k2", Value: "v2"})
-	assert.DeepEquals(t, result.Rows[3], &sgbucket.ViewRow{ID: "doc4", Key: []interface{}{17.0, false}})
-	assert.DeepEquals(t, result.Rows[4], &sgbucket.ViewRow{ID: "doc5", Key: []interface{}{17.0, true}})
+	assert.Equal(t, 5, result.TotalRows)
+	assert.Equal(t, &sgbucket.ViewRow{ID: "doc3", Key: 17.0, Value: []interface{}{"v3"}}, result.Rows[0])
+	assert.Equal(t, &sgbucket.ViewRow{ID: "doc1", Key: "k1", Value: "v1"}, result.Rows[1])
+	assert.Equal(t, &sgbucket.ViewRow{ID: "doc2", Key: "k2", Value: "v2"}, result.Rows[2])
+	assert.Equal(t, &sgbucket.ViewRow{ID: "doc4", Key: []interface{}{17.0, false}}, result.Rows[3])
+	assert.Equal(t, &sgbucket.ViewRow{ID: "doc5", Key: []interface{}{17.0, true}}, result.Rows[4])
 
 	// Try a startkey:
 	options["startkey"] = "k2"
 	options["include_docs"] = true
 	result, err = bucket.View("docname", "view1", options)
 	assertNoError(t, err, "View call failed")
-	assert.Equals(t, result.TotalRows, 3)
+	assert.Equal(t, 3, result.TotalRows)
 	var expectedDoc interface{} = map[string]interface{}{"key": "k2", "value": "v2"}
-	assert.DeepEquals(t, result.Rows[0], &sgbucket.ViewRow{ID: "doc2", Key: "k2", Value: "v2",
-		Doc: &expectedDoc})
+	assert.Equal(t, &sgbucket.ViewRow{ID: "doc2", Key: "k2", Value: "v2",
+		Doc: &expectedDoc}, result.Rows[0])
 
 	// Try an endkey:
 	options["endkey"] = "k2"
 	result, err = bucket.View("docname", "view1", options)
 	assertNoError(t, err, "View call failed")
-	assert.Equals(t, result.TotalRows, 1)
-	assert.DeepEquals(t, result.Rows[0], &sgbucket.ViewRow{ID: "doc2", Key: "k2", Value: "v2",
-		Doc: &expectedDoc})
+	assert.Equal(t, 1, result.TotalRows)
+	assert.Equal(t, &sgbucket.ViewRow{ID: "doc2", Key: "k2", Value: "v2",
+		Doc: &expectedDoc}, result.Rows[0])
 
 	// Try an endkey out of range:
 	options["endkey"] = "k999"
 	result, err = bucket.View("docname", "view1", options)
 	assertNoError(t, err, "View call failed")
-	assert.Equals(t, result.TotalRows, 1)
-	assert.DeepEquals(t, result.Rows[0], &sgbucket.ViewRow{ID: "doc2", Key: "k2", Value: "v2",
-		Doc: &expectedDoc})
+	assert.Equal(t, 1, result.TotalRows)
+	assert.Equal(t, &sgbucket.ViewRow{ID: "doc2", Key: "k2", Value: "v2",
+		Doc: &expectedDoc}, result.Rows[0])
 
 	// Try without inclusive_end:
 	options["endkey"] = "k2"
 	options["inclusive_end"] = false
 	result, err = bucket.View("docname", "view1", options)
 	assertNoError(t, err, "View call failed")
-	assert.Equals(t, result.TotalRows, 0)
+	assert.Equal(t, 0, result.TotalRows)
 
 	// Try a single key:
 	options = map[string]interface{}{"stale": false, "key": "k2", "include_docs": true}
 	result, err = bucket.View("docname", "view1", options)
 	assertNoError(t, err, "View call failed")
-	assert.Equals(t, result.TotalRows, 1)
-	assert.DeepEquals(t, result.Rows[0], &sgbucket.ViewRow{ID: "doc2", Key: "k2", Value: "v2",
-		Doc: &expectedDoc})
+	assert.Equal(t, 1, result.TotalRows)
+	assert.Equal(t, &sgbucket.ViewRow{ID: "doc2", Key: "k2", Value: "v2",
+		Doc: &expectedDoc}, result.Rows[0])
 
 	// Delete the design doc:
 	assertNoError(t, bucket.DeleteDDoc("docname"), "DeleteDDoc")
@@ -207,7 +207,7 @@ func TestGetDDocs(t *testing.T) {
 
 	ddocs, getErr := bucket.GetDDocs()
 	assertNoError(t, getErr, "GetDDocs failed")
-	assert.Equals(t, 2, len(ddocs))
+	assert.Equal(t, len(ddocs), 2)
 }
 
 func TestGetBulkRaw(t *testing.T) {
@@ -224,9 +224,9 @@ func TestGetBulkRaw(t *testing.T) {
 	// call bulk get raw
 	resultRaw, err := bucket.GetBulkRaw([]string{"key1", "key2"})
 	assertNoError(t, err, "GetBulkRaw")
-	assert.Equals(t, len(resultRaw), 2)
-	assert.DeepEquals(t, resultRaw["key1"], []byte("value1"))
-	assert.DeepEquals(t, resultRaw["key2"], []byte("value2"))
+	assert.Equal(t, 2, len(resultRaw))
+	assert.Equal(t, []byte("value1"), resultRaw["key1"])
+	assert.Equal(t, []byte("value2"), resultRaw["key2"])
 
 }
 
@@ -245,7 +245,7 @@ func TestGets(t *testing.T) {
 	cas, err := bucket.Get("key", &value)
 	assertNoError(t, err, "Gets")
 	assert.True(t, cas > 0)
-	assert.DeepEquals(t, value, "value")
+	assert.Equal(t, "value", value)
 
 	// GetsRaw
 	err = bucket.SetRaw("keyraw", 0, nil, []byte("Hello"))
@@ -254,7 +254,7 @@ func TestGets(t *testing.T) {
 	value, cas, err = bucket.GetRaw("keyraw")
 	assertNoError(t, err, "GetsRaw")
 	assert.True(t, cas > 0)
-	assert.DeepEquals(t, value, []byte("Hello"))
+	assert.Equal(t, []byte("Hello"), value)
 
 }
 
@@ -276,7 +276,7 @@ func TestWriteCas(t *testing.T) {
 	err = json.Unmarshal([]byte(`{"value":"value2"}`), &obj)
 	newCas, err := bucket.WriteCas("key1", 0, 0, 0, obj, 0)
 	assertTrue(t, err != nil, "Invalid cas should have returned error.")
-	assert.Equals(t, newCas, uint64(0))
+	assert.Equal(t, uint64(0), newCas)
 
 	// Update document with correct cas value
 	err = json.Unmarshal([]byte(`{"value":"value2"}`), &obj)
@@ -286,14 +286,14 @@ func TestWriteCas(t *testing.T) {
 	assertTrue(t, cas != newCas, "Cas value should change on successful update")
 	var result interface{}
 	getCas, err := bucket.Get("key1", &result)
-	assert.DeepEquals(t, result, obj)
-	assert.Equals(t, getCas, newCas)
+	assert.Equal(t, obj, result)
+	assert.Equal(t, newCas, getCas)
 
 	// Update document with obsolete case value
 	err = json.Unmarshal([]byte(`{"value":"value3"}`), &obj)
 	newCas, err = bucket.WriteCas("key1", 0, 0, cas, obj, 0)
 	assertTrue(t, err != nil, "Invalid cas should have returned error.")
-	assert.Equals(t, newCas, uint64(0))
+	assert.Equal(t, uint64(0), newCas)
 
 	// Add with WriteCas - raw docs
 	// Insert
@@ -304,7 +304,7 @@ func TestWriteCas(t *testing.T) {
 	// Update document with wrong (zero) cas value
 	newCas, err = bucket.WriteCas("keyraw1", 0, 0, 0, []byte("value2"), sgbucket.Raw)
 	assertTrue(t, err != nil, "Invalid cas should have returned error.")
-	assert.Equals(t, newCas, uint64(0))
+	assert.Equal(t, uint64(0), newCas)
 
 	// Update document with correct cas value
 	newCas, err = bucket.WriteCas("keyraw1", 0, 0, cas, []byte("value2"), sgbucket.Raw)
@@ -312,13 +312,13 @@ func TestWriteCas(t *testing.T) {
 	assertTrue(t, cas > 0, "Cas value should be greater than zero")
 	assertTrue(t, cas != newCas, "Cas value should change on successful update")
 	value, getCas, err := bucket.GetRaw("keyraw1")
-	assert.DeepEquals(t, value, []byte("value2"))
-	assert.Equals(t, getCas, newCas)
+	assert.Equal(t, []byte("value2"), value)
+	assert.Equal(t, newCas, getCas)
 
 	// Update document with obsolete cas value
 	newCas, err = bucket.WriteCas("keyraw1", 0, 0, cas, []byte("value3"), sgbucket.Raw)
 	assertTrue(t, err != nil, "Invalid cas should have returned error.")
-	assert.Equals(t, newCas, uint64(0))
+	assert.Equal(t, uint64(0), newCas)
 
 	// Delete document, attempt to recreate w/ cas set to 0
 	err = bucket.Delete("keyraw1")
@@ -327,8 +327,8 @@ func TestWriteCas(t *testing.T) {
 	assertTrue(t, err == nil, "Recreate with cas=0 should succeed.")
 	assertTrue(t, cas > 0, "Cas value should be greater than zero")
 	value, getCas, err = bucket.GetRaw("keyraw1")
-	assert.DeepEquals(t, value, []byte("resurrectValue"))
-	assert.Equals(t, getCas, newCas)
+	assert.Equal(t, []byte("resurrectValue"), value)
+	assert.Equal(t, newCas, getCas)
 
 }
 
@@ -354,13 +354,13 @@ func TestRemove(t *testing.T) {
 	assertTrue(t, cas != newCas, "Cas value should change on successful update")
 	var result interface{}
 	getCas, err := bucket.Get("key1", &result)
-	assert.DeepEquals(t, result, obj)
-	assert.Equals(t, getCas, newCas)
+	assert.Equal(t, obj, result)
+	assert.Equal(t, newCas, getCas)
 
 	// Remove document with incorrect cas value
 	newCas, err = bucket.Remove("key1", cas)
 	assertTrue(t, err != nil, "Invalid cas should have returned error.")
-	assert.Equals(t, newCas, uint64(0))
+	assert.Equal(t, uint64(0), newCas)
 
 	// Remove document with correct cas value
 	newCas, err = bucket.Remove("key1", getCas)
@@ -409,7 +409,7 @@ func TestNonRawBytes(t *testing.T) {
 		assertTrue(t, cas > 0, fmt.Sprintf("CAS is zero for key: %s", key))
 		assertTrue(t, result != nil, fmt.Sprintf("result is nil for key: %s", key))
 		if result != nil {
-			assert.Equals(t, result["value"], "value1")
+			assert.Equal(t, "value1", result["value"])
 		}
 
 		// Verify retrieval as *[]byte
@@ -420,7 +420,7 @@ func TestNonRawBytes(t *testing.T) {
 		assertTrue(t, result != nil, fmt.Sprintf("result is nil for key: %s", key))
 		if result != nil {
 			matching := bytes.Compare(rawResult, byteBody)
-			assert.Equals(t, matching, 0)
+			assert.Equal(t, 0, matching)
 		}
 	}
 
@@ -432,7 +432,7 @@ func TestNonRawBytes(t *testing.T) {
 	options := map[string]interface{}{"stale": false}
 	result, err := bucket.View("docname", "view1", options)
 	assertNoError(t, err, "View call failed")
-	assert.Equals(t, result.TotalRows, len(keySet))
+	assert.Equal(t, len(keySet), result.TotalRows)
 }
 
 //////// HELPERS:
