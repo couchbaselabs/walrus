@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	sgbucket "github.com/couchbase/sg-bucket"
-	assert "github.com/couchbaselabs/go.assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBackfill(t *testing.T) {
@@ -19,18 +19,18 @@ func TestBackfill(t *testing.T) {
 	assert.True(t, feed != nil)
 
 	event := <-feed.Events()
-	assert.Equals(t, event.Opcode, sgbucket.FeedOpBeginBackfill)
+	assert.Equal(t, sgbucket.FeedOpBeginBackfill, event.Opcode)
 	results := map[string]string{}
 	for i := 0; i < 3; i++ {
 		event := <-feed.Events()
-		assert.Equals(t, event.Opcode, sgbucket.FeedOpMutation)
+		assert.Equal(t, sgbucket.FeedOpMutation, event.Opcode)
 		results[string(event.Key)] = string(event.Value)
 	}
-	assert.DeepEquals(t, results, map[string]string{
-		"able": `"A"`, "baker": `"B"`, "charlie": `"C"`})
+	assert.Equal(t, map[string]string{
+		"able": `"A"`, "baker": `"B"`, "charlie": `"C"`}, results)
 
 	event = <-feed.Events()
-	assert.Equals(t, event.Opcode, sgbucket.FeedOpEndBackfill)
+	assert.Equal(t, sgbucket.FeedOpEndBackfill, event.Opcode)
 
 	event, ok := <-feed.Events()
 	assert.False(t, ok)
@@ -56,8 +56,8 @@ func TestMutations(t *testing.T) {
 		bucket.Delete("eskimo")
 	}()
 
-	assert.DeepEquals(t, <-feed.Events(), sgbucket.FeedEvent{Opcode: sgbucket.FeedOpMutation, Key: []byte("delta"), Value: []byte(`"D"`), Cas: 4})
-	assert.DeepEquals(t, <-feed.Events(), sgbucket.FeedEvent{Opcode: sgbucket.FeedOpMutation, Key: []byte("eskimo"), Value: []byte(`"E"`), Cas: 5})
-	assert.DeepEquals(t, <-feed.Events(), sgbucket.FeedEvent{Opcode: sgbucket.FeedOpMutation, Key: []byte("fahrvergnügen"), Value: []byte(`"F"`), Cas: 6})
-	assert.DeepEquals(t, <-feed.Events(), sgbucket.FeedEvent{Opcode: sgbucket.FeedOpDeletion, Key: []byte("eskimo"), Cas: 7})
+	assert.Equal(t, sgbucket.FeedEvent{Opcode: sgbucket.FeedOpMutation, Key: []byte("delta"), Value: []byte(`"D"`), Cas: 4}, <-feed.Events())
+	assert.Equal(t, sgbucket.FeedEvent{Opcode: sgbucket.FeedOpMutation, Key: []byte("eskimo"), Value: []byte(`"E"`), Cas: 5}, <-feed.Events())
+	assert.Equal(t, sgbucket.FeedEvent{Opcode: sgbucket.FeedOpMutation, Key: []byte("fahrvergnügen"), Value: []byte(`"F"`), Cas: 6}, <-feed.Events())
+	assert.Equal(t, sgbucket.FeedEvent{Opcode: sgbucket.FeedOpDeletion, Key: []byte("eskimo"), Cas: 7}, <-feed.Events())
 }
