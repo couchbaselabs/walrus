@@ -91,7 +91,7 @@ func (bucket *WalrusBucket) _compileDesignDoc(docname string, design *sgbucket.D
 	}
 	ddoc := walrusDesignDoc{}
 	for name, fns := range design.Views {
-		jsserver := sgbucket.NewJSMapFunction(fns.Map)
+		jsserver := sgbucket.NewJSMapFunction(fns.Map, 0)
 		view := &walrusView{
 			mapFunction:    jsserver,
 			reduceFunction: fns.Reduce,
