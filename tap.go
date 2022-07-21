@@ -40,7 +40,7 @@ func (bucket *WalrusBucket) StartTapFeed(args sgbucket.FeedArguments, dbStats *e
 	}
 
 	go feed.run()
-
+	close(args.Started)
 	return feed, nil
 }
 
