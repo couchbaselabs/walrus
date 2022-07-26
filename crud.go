@@ -387,15 +387,29 @@ func (bucket *WalrusBucket) GetXattr(k string, xattrKey string, xv interface{}) 
 	return 0, errors.New("GetXattr not implemented for walrus")
 }
 
+// Returns true if the subDocKey would be using nested sub docs
+func subdocKeyNesting(subDocKey string) (nesting bool) {
+	if strings.Contains(subDocKey, ".") ||
+		strings.Contains(subDocKey, "[") ||
+		strings.Contains(subDocKey, "]") {
+		return true
+	}
+	return false
+}
+
 // GetSubDocRaw Walrus implementation only works with a top-level subdocKey
 func (bucket *WalrusBucket) GetSubDocRaw(k string, subdocKey string) (value []byte, casOut uint64, err error) {
+	if subdocKeyNesting(subdocKey) {
+		panic("walrus implementation of GetSubDocRaw does not support subdoc nesting")
+	}
+
 	var fullDoc map[string]interface{}
 	casOut, err = bucket.Get(k, &fullDoc)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	if fullDoc[subdocKey] == nil {
+	if _, ok := fullDoc[subdocKey]; !ok {
 		return nil, 0, fmt.Errorf("SubdocGetRaw with key %s and subdocKey %s not found, %w", k, subdocKey, bucket.missingError(k))
 	}
 
@@ -406,6 +420,10 @@ func (bucket *WalrusBucket) GetSubDocRaw(k string, subdocKey string) (value []by
 
 // WriteSubDoc Walrus implementation only works with a top-level subdocKey
 func (bucket *WalrusBucket) WriteSubDoc(k string, subdocKey string, cas uint64, value []byte) (casOut uint64, err error) {
+	if subdocKeyNesting(subdocKey) {
+		panic("walrus implementation of WriteSubDoc does not support subdoc nesting")
+	}
+
 	// Get existing doc (if it exists) to change sub doc value in
 	fullDoc := make(map[string]interface{})
 	casOut, err = bucket.Get(k, &fullDoc)
@@ -419,7 +437,7 @@ func (bucket *WalrusBucket) WriteSubDoc(k string, subdocKey string, cas uint64, 
 	fullDoc[subdocKey] = subDocVal
 
 	// Write full doc body to bucket
-	err = bucket.Set(k, 0, nil, fullDoc)
+	casOut, err = bucket.WriteCas(k, 0, 0, casOut, fullDoc, 0)
 	if err != nil {
 		return 0, err
 	}
