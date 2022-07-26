@@ -371,7 +371,7 @@ func (bucket *WalrusBucket) WriteCasWithXattr(k string, xattrKey string, exp uin
 	return 0, errors.New("WriteCasWithXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) WriteWithXattr(k string, xattrKey string, exp uint32, cas uint64, opts *sgbucket.MutateInOptions,value []byte, xattrValue []byte, isDelete bool, deleteBody bool) (casOut uint64, err error) {
+func (bucket *WalrusBucket) WriteWithXattr(k string, xattrKey string, exp uint32, cas uint64, opts *sgbucket.MutateInOptions, value []byte, xattrValue []byte, isDelete bool, deleteBody bool) (casOut uint64, err error) {
 	return 0, errors.New("WriteWithXattr not implemented for walrus")
 }
 
@@ -387,12 +387,43 @@ func (bucket *WalrusBucket) GetXattr(k string, xattrKey string, xv interface{}) 
 	return 0, errors.New("GetXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) GetSubDocRaw(k string, subdocKey string)(value []byte, casOut uint64, err error){
-	return nil, 0, errors.New("GetSubDocRaw not implemented for walrus")
+// GetSubDocRaw Walrus implementation only works with a top-level subdocKey
+func (bucket *WalrusBucket) GetSubDocRaw(k string, subdocKey string) (value []byte, casOut uint64, err error) {
+	var fullDoc map[string]interface{}
+	casOut, err = bucket.Get(k, &fullDoc)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if fullDoc[subdocKey] == nil {
+		return nil, 0, fmt.Errorf("SubdocGetRaw with key %s and subdocKey %s not found, %w", k, subdocKey, bucket.missingError(k))
+	}
+
+	value, err = json.Marshal(fullDoc[subdocKey])
+	return value, casOut, err
+
 }
 
-func (bucket *WalrusBucket) WriteSubDoc(k string, subdocKey string, cas uint64, value []byte)(casOut uint64, err error){
-	return 0, errors.New("WriteSubdoc not implemented for walrus")
+// WriteSubDoc Walrus implementation only works with a top-level subdocKey
+func (bucket *WalrusBucket) WriteSubDoc(k string, subdocKey string, cas uint64, value []byte) (casOut uint64, err error) {
+	// Get existing doc (if it exists) to change sub doc value in
+	fullDoc := make(map[string]interface{})
+	casOut, err = bucket.Get(k, &fullDoc)
+	if err != nil && !errors.Is(err, bucket.missingError(k)) {
+		return 0, err
+	}
+
+	// Set new subdoc value
+	var subDocVal map[string]interface{}
+	err = json.Unmarshal(value, &subDocVal)
+	fullDoc[subdocKey] = subDocVal
+
+	// Write full doc body to bucket
+	err = bucket.Set(k, 0, nil, fullDoc)
+	if err != nil {
+		return 0, err
+	}
+	return casOut, nil
 }
 
 func (bucket *WalrusBucket) WriteUpdateWithXattr(k string, xattrKey string, userXattrKey string, exp uint32, opts *sgbucket.MutateInOptions, previous *sgbucket.BucketDocument, callback sgbucket.WriteUpdateWithXattrFunc) (casOut uint64, err error) {
@@ -404,11 +435,11 @@ func (bucket *WalrusBucket) SetXattr(k string, xattrKey string, xv []byte) (casO
 }
 
 func (bucket *WalrusBucket) RemoveXattr(k string, xattrKey string, cas uint64) error {
-	return  errors.New("RemoveXattr not implemented for walrus")
+	return errors.New("RemoveXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) DeleteXattrs(k string, xattrKeys... string) error {
-	return  errors.New("DeleteXattrs not implemented for walrus")
+func (bucket *WalrusBucket) DeleteXattrs(k string, xattrKeys ...string) error {
+	return errors.New("DeleteXattrs not implemented for walrus")
 }
 
 func (bucket *WalrusBucket) SubdocInsert(docID string, fieldPath string, cas uint64, value interface{}) error {
