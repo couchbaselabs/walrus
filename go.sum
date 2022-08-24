@@ -4,6 +4,8 @@ github.com/couchbase/sg-bucket v0.0.0-20220722152228-4e219181fb0f h1:rNM7XAcUxnp
 github.com/couchbase/sg-bucket v0.0.0-20220722152228-4e219181fb0f/go.mod h1:9XQoB1t+elPP+yEjHGOX3xcC3Z0/qDgOI7h/fc9XjlU=
 github.com/couchbase/sg-bucket v0.0.0-20220725152948-e1112ff01a3d h1:cYrMXK8u0FQEKTes5PkRmbkao1EjESwH+6SHc7rDHsE=
 github.com/couchbase/sg-bucket v0.0.0-20220725152948-e1112ff01a3d/go.mod h1:9XQoB1t+elPP+yEjHGOX3xcC3Z0/qDgOI7h/fc9XjlU=
+github.com/couchbase/sg-bucket v0.0.0-20220824103435-aa28032bc2a3 h1:bPd/j0+YqKAOcekv0INIxjSiheB6Lle7wXAanGPb5Eo=
+github.com/couchbase/sg-bucket v0.0.0-20220824103435-aa28032bc2a3/go.mod h1:9XQoB1t+elPP+yEjHGOX3xcC3Z0/qDgOI7h/fc9XjlU=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/golang/snappy v0.0.4 h1:yAGX7huGHXlcLOEtBnF4w7FQwA26wojNCwOYAEhLjQM=
@@ -25,6 +27,8 @@ github.com/stretchr/testify v1.7.1 h1:5TQK59W5E3v0r2duFAb7P95B6hEeOyEnHRa8MjYSMT
 github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 golang.org/x/net v0.0.0-20220425223048-2871e0cb64e4 h1:HVyaeDAYux4pnY+D/SiwmLOR36ewZ4iGQIIrtnuCjFA=
 golang.org/x/net v0.0.0-20220425223048-2871e0cb64e4/go.mod h1:CfG3xpIq0wQ8r1q4Su4UZFWDARRcnwPjda9FqA0JpMk=
+golang.org/x/net v0.0.0-20220822230855-b0a4917ee28c h1:JVAXQ10yGGVbSyoer5VILysz6YKjdNT2bsvlayjqhes=
+golang.org/x/net v0.0.0-20220822230855-b0a4917ee28c/go.mod h1:YDH+HFinaLZZlnHAfSS6ZXJJ9M9t4Dl22yv3iI2vPwk=
 golang.org/x/sync v0.0.0-20210220032951-036812b2e83c h1:5KslGYwFpkhGh+Q16bwMP3cOontH8FOep7tGV86Y7SQ=
 golang.org/x/sync v0.0.0-20210220032951-036812b2e83c/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
