@@ -1,6 +1,7 @@
 package walrus
 
 import (
+	"context"
 	"testing"
 
 	sgbucket "github.com/couchbase/sg-bucket"
@@ -8,13 +9,14 @@ import (
 )
 
 func TestBackfill(t *testing.T) {
+	ctx := context.Background()
 	bucket := NewBucket("buckit")
-	defer bucket.Close()
+	defer bucket.Close(ctx)
 	bucket.Add("able", 0, "A")
 	bucket.Add("baker", 0, "B")
 	bucket.Add("charlie", 0, "C")
 
-	feed, err := bucket.StartTapFeed(sgbucket.FeedArguments{Backfill: 0, Dump: true}, nil)
+	feed, err := bucket.StartTapFeed(ctx, sgbucket.FeedArguments{Backfill: 0, Dump: true}, nil)
 	assertNoError(t, err, "StartTapFeed failed")
 	assert.True(t, feed != nil)
 
@@ -37,13 +39,14 @@ func TestBackfill(t *testing.T) {
 }
 
 func TestMutations(t *testing.T) {
+	ctx := context.Background()
 	bucket := NewBucket("buckit")
-	defer bucket.Close()
+	defer bucket.Close(ctx)
 	bucket.Add("able", 0, "A")
 	bucket.Add("baker", 0, "B")
 	bucket.Add("charlie", 0, "C")
 
-	feed, err := bucket.StartTapFeed(sgbucket.FeedArguments{Backfill: sgbucket.FeedNoBackfill}, nil)
+	feed, err := bucket.StartTapFeed(ctx, sgbucket.FeedArguments{Backfill: sgbucket.FeedNoBackfill}, nil)
 	assertNoError(t, err, "StartTapFeed failed")
 	assert.True(t, feed != nil)
 	defer feed.Close()

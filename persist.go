@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/couchbase/sg-bucket"
+	sgbucket "github.com/couchbase/sg-bucket"
 )
 
 // How long to wait after an in-memory change before saving to disk
@@ -43,8 +43,8 @@ func load(path string) (*WalrusBucket, error) {
 	defer file.Close()
 
 	bucket := &WalrusBucket{
-		path:  path,
-		views: map[string]walrusDesignDoc{},
+		path:   path,
+		views:  map[string]walrusDesignDoc{},
 		vbSeqs: sgbucket.NewMapVbucketSeqCounter(SimulatedVBucketCount),
 	}
 	decoder := gob.NewDecoder(file)
@@ -61,7 +61,7 @@ func load(path string) (*WalrusBucket, error) {
 			return nil, err
 		}
 	}
-	runtime.SetFinalizer(bucket, (*WalrusBucket).Close)
+	runtime.SetFinalizer(bucket, (*WalrusBucket).Finalize)
 	logg("Loaded bucket from %s", path)
 	return bucket, nil
 }

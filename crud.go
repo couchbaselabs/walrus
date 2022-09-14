@@ -10,6 +10,7 @@
 package walrus
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,6 +44,8 @@ type walrusData struct {
 	Docs       map[string]*walrusDoc          // Maps doc ID -> walrusDoc
 	DesignDocs map[string]*sgbucket.DesignDoc // Stores source form of design docs
 }
+
+var _ sgbucket.DataStore = &WalrusBucket{}
 
 // Simple, inefficient in-memory implementation of Bucket interface.
 // http://ihasabucket.com
@@ -82,7 +85,7 @@ func NewBucket(bucketName string) *WalrusBucket {
 		vbSeqs: sgbucket.NewMapVbucketSeqCounter(SimulatedVBucketCount),
 		views:  map[string]walrusDesignDoc{},
 	}
-	runtime.SetFinalizer(bucket, (*WalrusBucket).Close)
+	runtime.SetFinalizer(bucket, (*WalrusBucket).Finalize)
 	return bucket
 }
 
@@ -166,7 +169,12 @@ func (bucket *WalrusBucket) GetName() string {
 	return bucket.name // name is immutable so this needs no lock
 }
 
-func (bucket *WalrusBucket) Close() {
+// implement DataStore
+func (bucket *WalrusBucket) Close(ctx context.Context) {
+	bucket.Finalize()
+}
+
+func (bucket *WalrusBucket) Finalize() {
 	// Remove the bucket from the global 'buckets' map:
 	bucketsLock.Lock()
 	defer bucketsLock.Unlock()
@@ -189,9 +197,9 @@ func (bucket *WalrusBucket) Close() {
 	}
 }
 
-func (bucket *WalrusBucket) CloseAndDelete() error {
+func (bucket *WalrusBucket) CloseAndDelete(ctx context.Context) error {
 	path := bucket.path
-	bucket.Close()
+	bucket.Close(ctx)
 	if path == "" {
 		return nil
 	}

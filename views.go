@@ -1,6 +1,7 @@
 package walrus
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -22,7 +23,7 @@ type walrusView struct {
 // Stores view functions for use by a Bucket.
 type walrusDesignDoc map[string]*walrusView
 
-func (bucket *WalrusBucket) GetDDocs() (ddocs map[string]sgbucket.DesignDoc, err error) {
+func (bucket *WalrusBucket) GetDDocs(ctx context.Context) (ddocs map[string]sgbucket.DesignDoc, err error) {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
@@ -34,7 +35,7 @@ func (bucket *WalrusBucket) GetDDocs() (ddocs map[string]sgbucket.DesignDoc, err
 	return ddocs, err
 }
 
-func (bucket *WalrusBucket) GetDDoc(docname string) (ddoc sgbucket.DesignDoc, err error) {
+func (bucket *WalrusBucket) GetDDoc(ctx context.Context, docname string) (ddoc sgbucket.DesignDoc, err error) {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
@@ -50,7 +51,7 @@ func (bucket *WalrusBucket) GetDDoc(docname string) (ddoc sgbucket.DesignDoc, er
 	return ddoc, nil
 }
 
-func (bucket *WalrusBucket) PutDDoc(docname string, design *sgbucket.DesignDoc) error {
+func (bucket *WalrusBucket) PutDDoc(ctx context.Context, docname string, design *sgbucket.DesignDoc) error {
 	err := CheckDDoc(design)
 	if err != nil {
 		return err
@@ -73,7 +74,7 @@ func (bucket *WalrusBucket) PutDDoc(docname string, design *sgbucket.DesignDoc) 
 	return nil
 }
 
-func (bucket *WalrusBucket) DeleteDDoc(docname string) error {
+func (bucket *WalrusBucket) DeleteDDoc(ctx context.Context, docname string) error {
 	bucket.lock.Lock()
 	defer bucket.lock.Unlock()
 
@@ -133,7 +134,7 @@ func (bucket *WalrusBucket) findView(docName, viewName string, staleOK bool) (vi
 	return
 }
 
-func (bucket *WalrusBucket) View(docName, viewName string, params map[string]interface{}) (sgbucket.ViewResult, error) {
+func (bucket *WalrusBucket) View(ctx context.Context, docName, viewName string, params map[string]interface{}) (sgbucket.ViewResult, error) {
 	// Note: This method itself doesn't lock, so it shouldn't access bucket fields directly.
 	logg("View(%q, %q) ...", docName, viewName)
 
@@ -158,8 +159,8 @@ func (bucket *WalrusBucket) View(docName, viewName string, params map[string]int
 	return sgbucket.ProcessViewResult(result, params, bucket, view.reduceFunction)
 }
 
-func (bucket *WalrusBucket) ViewQuery(ddoc, name string, params map[string]interface{}) (sgbucket.QueryResultIterator, error) {
-	viewResult, err := bucket.View(ddoc, name, params)
+func (bucket *WalrusBucket) ViewQuery(ctx context.Context, ddoc, name string, params map[string]interface{}) (sgbucket.QueryResultIterator, error) {
+	viewResult, err := bucket.View(ctx, ddoc, name, params)
 	return &viewResult, err
 }
 
@@ -270,8 +271,8 @@ func (bucket *WalrusBucket) updateView(view *walrusView, toSequence uint64) sgbu
 	return view.index
 }
 
-func (bucket *WalrusBucket) ViewCustom(ddoc, name string, params map[string]interface{}, vres interface{}) error {
-	result, err := bucket.View(ddoc, name, params)
+func (bucket *WalrusBucket) ViewCustom(ctx context.Context, ddoc, name string, params map[string]interface{}, vres interface{}) error {
+	result, err := bucket.View(ctx, ddoc, name, params)
 	if err != nil {
 		return err
 	}

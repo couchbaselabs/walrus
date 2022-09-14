@@ -10,6 +10,7 @@
 package walrus
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,8 +24,9 @@ func TestSave(t *testing.T) {
 	tmpdir := t.TempDir()
 	kTestPath := filepath.Join(tmpdir, "/walrus_test_save.walrus")
 
+	ctx := context.Background()
 	bucket := NewBucket("persisty")
-	defer bucket.Close()
+	defer bucket.Close(ctx)
 	bucket.Add("key1", 0, `{"value": 1}`)
 	bucket.AddRaw("key2", 0, []byte("value2"))
 	bucket.path = kTestPath
@@ -41,12 +43,13 @@ func TestSave(t *testing.T) {
 	assertNoError(t, err, "couldn't re-save")
 
 	bucket2, err = load(kTestPath)
-	defer bucket2.Close()
+	defer bucket2.Close(ctx)
 	assertNoError(t, err, "couldn't re-load")
 	assert.Equal(t, bucket.walrusData, bucket2.walrusData)
 }
 
 func TestLoadOrNew(t *testing.T) {
+	ctx := context.Background()
 	tmpdir := t.TempDir()
 	kTestPath := filepath.Join(tmpdir, "/walrus_test_save.walrus")
 
@@ -58,12 +61,12 @@ func TestLoadOrNew(t *testing.T) {
 	assert.Equal(t, 0, len(bucket.Docs))
 
 	bucket.Add("key9", 0, `{"value": 9}`)
-	bucket.Close()
+	bucket.Close(ctx)
 
 	bucket, err = loadOrNew(kTestPath, "walrus_test_loadOrNew")
 	assertNoError(t, err, "loadOrNew #2 failed")
 	assert.Equal(t, bucket.walrusData, bucket.walrusData)
-	bucket.Close()
+	bucket.Close(ctx)
 }
 
 func TestBucketURLToDir(t *testing.T) {
@@ -84,19 +87,21 @@ func TestBucketURLToDir(t *testing.T) {
 }
 
 func TestNewPersistentBucket(t *testing.T) {
+	ctx := context.Background()
 	tmpdir := t.TempDir()
 	bucket, err := GetBucket(fmt.Sprintf("walrus:%s", tmpdir), "pool", "buckit")
 	assertNoError(t, err, "NewPersistentBucket failed")
 	assert.Equal(t, filepath.Join(tmpdir, "pool-buckit.walrus"), bucket.path)
-	bucket.Close()
+	bucket.Close(ctx)
 
 	bucket, err = GetBucket("./temp", "default", "buckit")
 	assertNoError(t, err, "NewPersistentBucket failed")
 	assert.Equal(t, filepath.Join("temp", "buckit.walrus"), bucket.path)
-	bucket.Close()
+	bucket.Close(ctx)
 }
 
 func TestWriteWithPersist(t *testing.T) {
+	ctx := context.Background()
 	tmpdir := t.TempDir()
 	bucket, err := GetBucket(fmt.Sprintf("walrus:%s", tmpdir), "pool", "buckit")
 	assertNoError(t, err, "NewPersistentBucket failed")
@@ -108,6 +113,6 @@ func TestWriteWithPersist(t *testing.T) {
 	value, _, err := bucket2.GetRaw("key1")
 	assertNoError(t, err, "Get failed")
 	assert.Equal(t, "value1", string(value))
-	bucket2.Close()
-	bucket.Close()
+	bucket2.Close(ctx)
+	bucket.Close(ctx)
 }
