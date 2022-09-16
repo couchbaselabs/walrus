@@ -3,7 +3,7 @@ module github.com/couchbaselabs/walrus
 go 1.17
 
 require (
-	github.com/couchbase/sg-bucket v0.0.0-20220824103435-aa28032bc2a3
+	github.com/couchbase/sg-bucket v0.0.0-20220906164713-c9afe94ac5c8
 	github.com/google/uuid v1.3.0
 	github.com/stretchr/testify v1.7.1
 	golang.org/x/text v0.3.7
