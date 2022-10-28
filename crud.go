@@ -29,6 +29,8 @@ const (
 	SimulatedVBucketCount = 1024 // Used when hashing doc id -> vbno
 )
 
+var _ sgbucket.DataStore = &WalrusBucket{}
+
 var MaxDocSize = 0 // Used during the write function
 
 type DocTooBigErr struct{}
@@ -757,21 +759,6 @@ func (bucket *WalrusBucket) CouchbaseServerVersion() (major uint64, minor uint64
 
 func (bucket *WalrusBucket) UUID() (string, error) {
 	return bucket.uuid, nil
-}
-
-func (bucket *WalrusBucket) IsSupported(feature sgbucket.DataStoreFeature) bool {
-	switch feature {
-	case sgbucket.DataStoreFeatureSubdocOperations:
-		return false
-	case sgbucket.DataStoreFeatureXattrs:
-		return false
-	case sgbucket.DataStoreFeatureN1ql:
-		return false
-	case sgbucket.DataStoreFeatureCrc32cMacroExpansion:
-		return false
-	default:
-		return false
-	}
 }
 
 func (bucket *WalrusBucket) IsError(err error, errorType sgbucket.DataStoreErrorType) bool {
