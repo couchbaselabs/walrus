@@ -26,11 +26,12 @@ const (
 	defaultCollectionID   = 0
 )
 
-var defaultScopeAndCollection = scopeAndCollection{"_default", "_default"}
-
 var scopeCollectionNameRegexp = regexp.MustCompile("^[a-zA-Z0-9-][a-zA-Z0-9%_-]{0,250}$")
 
-var _ sgbucket.BucketStore = &CollectionBucket{}
+var (
+	_ sgbucket.BucketStore            = &CollectionBucket{}
+	_ sgbucket.DynamicDataStoreBucket = &CollectionBucket{}
+)
 
 // CollectionBucket is an in-memory implementation of a BucketStore.  Individual
 // collections are implemented as standard WalrusBuckets (in-memory DataStore implementations).
@@ -51,7 +52,7 @@ type WalrusCollection struct {
 	CollectionID uint32             // Unique collectionID
 }
 
-var _ sgbucket.BucketStore = &CollectionBucket{}
+var _ sgbucket.DataStore = &WalrusCollection{}
 
 func GetCollectionBucket(url, bucketName string) (*CollectionBucket, error) {
 
@@ -111,24 +112,41 @@ func (wh *CollectionBucket) IsSupported(feature sgbucket.BucketStoreFeature) boo
 }
 
 func (wh *CollectionBucket) DefaultDataStore() sgbucket.DataStore {
-	return wh.NamedDataStore(defaultScopeName, defaultCollectionName)
+	return wh.getOrCreateCollection(scopeAndCollection{defaultScopeName, defaultCollectionName})
 }
 
-func (wh *CollectionBucket) NamedDataStore(scope, collection string) sgbucket.DataStore {
-
-	sc, err := newScopeAndCollection(scope, collection)
+func (wh *CollectionBucket) NamedDataStore(name sgbucket.DataStoreName) sgbucket.DataStore {
+	sc, err := newValidScopeAndCollection(name.ScopeName(), name.CollectionName())
 	if err != nil {
 		return nil
 	}
 	return wh.getOrCreateCollection(sc)
 }
 
-func (wh *CollectionBucket) DropDataStore(scope, collection string) error {
-	sc, err := newScopeAndCollection(scope, collection)
+func (wh *CollectionBucket) CreateDataStore(name sgbucket.DataStoreName) error {
+	sc, err := newValidScopeAndCollection(name.ScopeName(), name.CollectionName())
 	if err != nil {
 		return err
 	}
-	return wh.dropCollection(sc)
+	_ = wh.createCollection(sc)
+	return nil
+}
+
+func (wh *CollectionBucket) DropDataStore(name sgbucket.DataStoreName) error {
+	// intentionally not validating scope/collection name on drop, we'll either find a matching one or not.
+	return wh.dropCollection(scopeAndCollection{name.ScopeName(), name.CollectionName()})
+}
+
+func (wh *CollectionBucket) ListDataStores() ([]sgbucket.DataStoreName, error) {
+	wh.lock.Lock()
+	defer wh.lock.Unlock()
+
+	var result []sgbucket.DataStoreName
+	for name := range wh.collectionIDs {
+		result = append(result, name)
+	}
+
+	return result, nil
 }
 
 func (wh *CollectionBucket) GetMaxVbno() (uint16, error) {
@@ -203,7 +221,7 @@ func (wh CollectionBucket) GetCollectionID(scope, collection string) (uint32, er
 
 func (wh CollectionBucket) _getCollectionID(scope, collection string) (uint32, error) {
 
-	fqName, err := newScopeAndCollection(scope, collection)
+	fqName, err := newValidScopeAndCollection(scope, collection)
 	if err != nil {
 		return 0, err
 	}
@@ -215,17 +233,18 @@ func (wh CollectionBucket) _getCollectionID(scope, collection string) (uint32, e
 	return collectionID, nil
 }
 
-func (wh *CollectionBucket) getOrCreateCollection(name scopeAndCollection) sgbucket.DataStore {
+func (wh *CollectionBucket) createCollection(name scopeAndCollection) sgbucket.DataStore {
 
 	wh.lock.Lock()
 	defer wh.lock.Unlock()
 
-	collectionID, ok := wh.collectionIDs[name]
-	if ok {
-		return wh.collections[collectionID]
-	}
+	return wh._createCollection(name)
+}
 
-	collectionID = 0
+func (wh *CollectionBucket) _createCollection(name scopeAndCollection) sgbucket.DataStore {
+
+	collectionID := uint32(0)
+
 	if !name.isDefault() {
 		wh.lastCollectionID++
 		collectionID = wh.lastCollectionID
@@ -239,7 +258,21 @@ func (wh *CollectionBucket) getOrCreateCollection(name scopeAndCollection) sgbuc
 
 	wh.collections[collectionID] = dataStore
 	wh.collectionIDs[name] = collectionID
+
 	return dataStore
+}
+
+func (wh *CollectionBucket) getOrCreateCollection(name scopeAndCollection) sgbucket.DataStore {
+
+	wh.lock.Lock()
+	defer wh.lock.Unlock()
+
+	collectionID, ok := wh.collectionIDs[name]
+	if ok {
+		return wh.collections[collectionID]
+	}
+
+	return wh._createCollection(name)
 }
 
 func (wh *CollectionBucket) dropCollection(name scopeAndCollection) error {
@@ -265,18 +298,30 @@ func (wh *CollectionBucket) dropCollection(name scopeAndCollection) error {
 }
 
 // scopeAndCollection stores the (scope name, collection name) tuple for collectionID storage and retrieval
-type scopeAndCollection [2]string
+type scopeAndCollection struct {
+	scope, collection string
+}
+
+var _ sgbucket.DataStoreName = &scopeAndCollection{"a", "b"}
+
+func (sc scopeAndCollection) ScopeName() string {
+	return sc.scope
+}
+
+func (sc scopeAndCollection) CollectionName() string {
+	return sc.collection
+}
 
 func (sc scopeAndCollection) String() string {
-	return sc[0] + ":" + sc[1]
+	return sc.scope + ":" + sc.collection
 }
 
 func (sc scopeAndCollection) isDefault() bool {
-	return sc[0] == defaultScopeName && sc[1] == defaultCollectionName
+	return sc.scope == defaultScopeName && sc.collection == defaultCollectionName
 }
 
-// Creates new scope and collection pair, with name validation (required for uniqueness of String())
-func newScopeAndCollection(scope, collection string) (id scopeAndCollection, err error) {
+// newValidScopeAndCollection validates the names and creates new scope and collection pair
+func newValidScopeAndCollection(scope, collection string) (id scopeAndCollection, err error) {
 	if !isValidDataStoreName(scope, collection) {
 		return id, errors.New("Invalid scope/collection name - only supports [A-Za-z0-9%-_]")
 	}

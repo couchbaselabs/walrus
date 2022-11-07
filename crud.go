@@ -778,3 +778,10 @@ func (bucket *WalrusBucket) GetExpiry(k string) (expiry uint32, getMetaError err
 	// Walrus does not support expiry, and treats all expiry operations as a noop
 	return 0, errors.New("Walrus does not support document expiry")
 }
+
+func (bucket *WalrusBucket) Exists(k string) (ok bool, err error) {
+	bucket.lock.RLock()
+	defer bucket.lock.RUnlock()
+	_, exists := bucket.Docs[k]
+	return exists, nil
+}

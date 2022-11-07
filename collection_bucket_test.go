@@ -3,22 +3,23 @@ package walrus
 import (
 	"errors"
 	"fmt"
-	sgbucket "github.com/couchbase/sg-bucket"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"sync"
 	"testing"
 	"time"
+
+	sgbucket "github.com/couchbase/sg-bucket"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMultiCollectionBucket(t *testing.T) {
 
 	huddle := NewCollectionBucket("huddle1")
-	c1 := huddle.NamedDataStore("scope1", "collection1")
+	c1 := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection1"})
 	ok, err := c1.Add("doc1", 0, "c1_value")
 	require.True(t, ok)
 	require.NoError(t, err)
-	c2 := huddle.NamedDataStore("scope1", "collection2")
+	c2 := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection2"})
 	ok, err = c2.Add("doc1", 0, "c2_value")
 	require.True(t, ok)
 	require.NoError(t, err)
@@ -31,17 +32,17 @@ func TestMultiCollectionBucket(t *testing.T) {
 	assert.Equal(t, "c2_value", value)
 
 	// reopen collection, verify retrieval
-	c1copy := huddle.NamedDataStore("scope1", "collection1")
+	c1copy := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection1"})
 	_, err = c1copy.Get("doc1", &value)
 	require.NoError(t, err)
 	assert.Equal(t, "c1_value", value)
 
 	// drop collection
-	err = huddle.DropDataStore("scope1", "collection1")
+	err = huddle.DropDataStore(scopeAndCollection{"scope1", "collection1"})
 	require.NoError(t, err)
 
 	// reopen collection, verify that previous data is not present
-	newC1 := huddle.NamedDataStore("scope1", "collection1")
+	newC1 := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection1"})
 	_, err = newC1.Get("doc1", &value)
 	require.Error(t, err)
 	require.True(t, errors.As(err, &sgbucket.MissingError{}))
@@ -50,7 +51,7 @@ func TestMultiCollectionBucket(t *testing.T) {
 func TestDefaultCollection(t *testing.T) {
 
 	huddle := NewCollectionBucket("huddle1")
-	c1 := huddle.NamedDataStore("scope1", "collection1")
+	c1 := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection1"})
 	ok, err := c1.Add("doc1", 0, "c1_value")
 	require.True(t, ok)
 	require.NoError(t, err)
@@ -106,8 +107,8 @@ func TestCollectionMutations(t *testing.T) {
 	huddle := NewCollectionBucket("huddle1")
 	defer huddle.Close()
 
-	collection1 := huddle.NamedDataStore("scope1", "collection1")
-	collection2 := huddle.NamedDataStore("scope1", "collection2")
+	collection1 := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection1"})
+	collection2 := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection2"})
 	numDocs := 50
 
 	collectionID_1, _ := huddle.GetCollectionID("scope1", "collection1")
@@ -115,8 +116,12 @@ func TestCollectionMutations(t *testing.T) {
 
 	// Add n docs to two collections
 	for i := 1; i <= numDocs; i++ {
-		collection1.Add(fmt.Sprintf("doc%d", i), 0, fmt.Sprintf("value%d", i))
-		collection2.Add(fmt.Sprintf("doc%d", i), 0, fmt.Sprintf("value%d", i))
+		ok, err := collection1.Add(fmt.Sprintf("doc%d", i), 0, fmt.Sprintf("value%d", i))
+		require.NoError(t, err)
+		require.True(t, ok)
+		ok, err = collection2.Add(fmt.Sprintf("doc%d", i), 0, fmt.Sprintf("value%d", i))
+		require.NoError(t, err)
+		require.True(t, ok)
 	}
 
 	var callbackMutex sync.Mutex
