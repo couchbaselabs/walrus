@@ -774,6 +774,21 @@ func (bucket *WalrusBucket) IsError(err error, errorType sgbucket.DataStoreError
 	}
 }
 
+func (bucket *WalrusBucket) IsSupported(feature sgbucket.BucketStoreFeature) bool {
+	switch feature {
+	case sgbucket.BucketStoreFeatureSubdocOperations:
+		return false
+	case sgbucket.BucketStoreFeatureXattrs:
+		return false
+	case sgbucket.BucketStoreFeatureN1ql:
+		return false
+	case sgbucket.BucketStoreFeatureCrc32cMacroExpansion:
+		return false
+	default:
+		return false
+	}
+}
+
 func (bucket *WalrusBucket) GetExpiry(k string) (expiry uint32, getMetaError error) {
 	// Walrus does not support expiry, and treats all expiry operations as a noop
 	return 0, errors.New("Walrus does not support document expiry")
