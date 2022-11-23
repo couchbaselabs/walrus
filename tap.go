@@ -3,6 +3,7 @@ package walrus
 import (
 	"expvar"
 	"fmt"
+	"time"
 
 	sgbucket "github.com/couchbase/sg-bucket"
 )
@@ -55,6 +56,7 @@ func (bucket *WalrusBucket) StartDCPFeed(args sgbucket.FeedArguments, callback s
 	go func() {
 		fmt.Printf("StartDCPFeed before event loop\n")
 		for event := range tapFeed.Events() {
+			event.TimeReceived = time.Now()
 			fmt.Printf("StartDCPFeed event loop for key %s\n", event.Key)
 			callback(event)
 		}
