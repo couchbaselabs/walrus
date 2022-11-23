@@ -61,6 +61,8 @@ type WalrusBucket struct {
 	walrusData
 }
 
+var _ sgbucket.BucketStore = &WalrusBucket{}
+
 // A document stored in a Bucket's .Docs map
 type walrusDoc struct {
 	Raw      []byte // Raw data content, or nil if deleted
@@ -151,6 +153,18 @@ func bucketURLToDir(urlStr string) (dir string) {
 		}
 	}
 	return
+}
+
+func (bucket *WalrusBucket) ListDataStores() ([]sgbucket.DataStoreName, error) {
+	return []sgbucket.DataStoreName{scopeAndCollection{defaultScopeName, defaultCollectionName}}, nil
+}
+
+func (bucket *WalrusBucket) DefaultDataStore() sgbucket.DataStore {
+	return bucket
+}
+
+func (bucket *WalrusBucket) NamedDataStore(name sgbucket.DataStoreName) sgbucket.DataStore {
+	panic("NamedDataStore not supported on WalrusBucket")
 }
 
 func (bucket *WalrusBucket) VBHash(docID string) uint32 {
