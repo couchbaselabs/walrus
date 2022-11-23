@@ -2,6 +2,7 @@ package walrus
 
 import (
 	"expvar"
+	"fmt"
 
 	sgbucket "github.com/couchbase/sg-bucket"
 )
@@ -52,11 +53,16 @@ func (bucket *WalrusBucket) StartDCPFeed(args sgbucket.FeedArguments, callback s
 	}
 
 	go func() {
+		fmt.Printf("StartDCPFeed before event loop\n")
 		for event := range tapFeed.Events() {
+			fmt.Printf("StartDCPFeed event loop for key %s\n", event.Key)
 			callback(event)
 		}
+		fmt.Printf("StartDCPFeed after event loop\n")
 		if args.DoneChan != nil {
+			fmt.Printf("StartDCPFeed before DoneChan close\n")
 			close(args.DoneChan)
+			fmt.Printf("StartDCPFeed after DoneChan close\n")
 		}
 	}()
 	return nil
@@ -75,11 +81,14 @@ func (feed *tapFeedImpl) Close() error {
 	feed.bucket.lock.Lock()
 	defer feed.bucket.lock.Unlock()
 
+	fmt.Printf("tapFeedImpl.Close()\n")
+
 	for i, afeed := range feed.bucket.tapFeeds {
 		if afeed == feed {
 			feed.bucket.tapFeeds[i] = nil
 		}
 	}
+	fmt.Printf("tapFeedImpl.Close() closing events channel\n")
 	feed.events.close()
 	feed.bucket = nil
 	return nil

@@ -13,6 +13,7 @@ import (
 	"errors"
 	"expvar"
 	"fmt"
+	"os"
 	"regexp"
 	"sync"
 
@@ -31,6 +32,7 @@ var scopeCollectionNameRegexp = regexp.MustCompile("^[a-zA-Z0-9-][a-zA-Z0-9%_-]{
 var (
 	_ sgbucket.BucketStore            = &CollectionBucket{}
 	_ sgbucket.DynamicDataStoreBucket = &CollectionBucket{}
+	_ sgbucket.DeleteableStore        = &CollectionBucket{}
 )
 
 // CollectionBucket is an in-memory implementation of a BucketStore.  Individual
@@ -94,6 +96,15 @@ func (wh *CollectionBucket) Close() {
 	for _, store := range wh.collections {
 		store.Close()
 	}
+}
+
+func (wh *CollectionBucket) CloseAndDelete() error {
+	path := wh.path
+	wh.Close()
+	if path == "" {
+		return nil
+	}
+	return os.Remove(path)
 }
 
 func (wh *CollectionBucket) IsSupported(feature sgbucket.BucketStoreFeature) bool {
@@ -184,6 +195,8 @@ func (wh *CollectionBucket) StartDCPFeed(args sgbucket.FeedArguments, callback s
 		}
 	}
 
+	doneChan := args.DoneChan
+	doneChans := map[*WalrusCollection]chan struct{}{}
 	for _, collection := range requestedCollections {
 		// Not bothering to remove scopes from args for the single collection feeds
 		// here because it's ignored by WalrusBucket's StartDCPFeed
@@ -192,9 +205,25 @@ func (wh *CollectionBucket) StartDCPFeed(args sgbucket.FeedArguments, callback s
 			event.CollectionID = collectionID
 			return callback(event)
 		}
+
+		// have each collection maintain its own doneChan
+		doneChans[collection] = make(chan struct{})
+		argsCopy := args
+		argsCopy.DoneChan = doneChans[collection]
+
 		// Ignoring error is safe because WalrusBucket doesn't have error scenarios for StartDCPFeed
-		_ = collection.StartDCPFeed(args, collectionAwareCallback, dbStats)
+		_ = collection.StartDCPFeed(argsCopy, collectionAwareCallback, dbStats)
 	}
+
+	// coalesce doneChans
+	go func() {
+		for _, collection := range requestedCollections {
+			fmt.Printf("before collection done chan %v\n", collection.FQName.String())
+			<-doneChans[collection]
+			fmt.Printf("after collection done chan %v\n", collection.FQName.String())
+		}
+		close(doneChan)
+	}()
 
 	return nil
 }
