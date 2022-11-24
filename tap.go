@@ -55,16 +55,24 @@ func (bucket *WalrusBucket) StartDCPFeed(args sgbucket.FeedArguments, callback s
 
 	go func() {
 		fmt.Printf("StartDCPFeed before event loop\n")
-		for event := range tapFeed.Events() {
-			event.TimeReceived = time.Now()
-			fmt.Printf("StartDCPFeed event loop for key %s\n", event.Key)
-			callback(event)
+	eventLoop:
+		for {
+			select {
+			case event := <-tapFeed.Events():
+				event.TimeReceived = time.Now()
+				fmt.Printf("StartDCPFeed event loop for key %s\n", event.Key)
+				callback(event)
+			case <-args.Terminator:
+				break eventLoop
+			}
 		}
 		fmt.Printf("StartDCPFeed after event loop\n")
 		if args.DoneChan != nil {
 			fmt.Printf("StartDCPFeed before DoneChan close\n")
 			close(args.DoneChan)
 			fmt.Printf("StartDCPFeed after DoneChan close\n")
+		} else {
+			fmt.Printf("DoneChan was nil\n")
 		}
 	}()
 	return nil
