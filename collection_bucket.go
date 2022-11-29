@@ -126,12 +126,12 @@ func (wh *CollectionBucket) DefaultDataStore() sgbucket.DataStore {
 	return wh.getOrCreateCollection(scopeAndCollection{defaultScopeName, defaultCollectionName})
 }
 
-func (wh *CollectionBucket) NamedDataStore(name sgbucket.DataStoreName) sgbucket.DataStore {
+func (wh *CollectionBucket) NamedDataStore(name sgbucket.DataStoreName) (sgbucket.DataStore, error) {
 	sc, err := newValidScopeAndCollection(name.ScopeName(), name.CollectionName())
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return wh.getOrCreateCollection(sc)
+	return wh.getOrCreateCollection(sc), nil
 }
 
 func (wh *CollectionBucket) CreateDataStore(name sgbucket.DataStoreName) error {

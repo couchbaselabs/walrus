@@ -15,11 +15,13 @@ import (
 func TestMultiCollectionBucket(t *testing.T) {
 
 	huddle := NewCollectionBucket("huddle1")
-	c1 := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection1"})
+	c1, err := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection1"})
+	require.NoError(t, err)
 	ok, err := c1.Add("doc1", 0, "c1_value")
 	require.True(t, ok)
 	require.NoError(t, err)
-	c2 := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection2"})
+	c2, err := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection2"})
+	require.NoError(t, err)
 	ok, err = c2.Add("doc1", 0, "c2_value")
 	require.True(t, ok)
 	require.NoError(t, err)
@@ -32,7 +34,8 @@ func TestMultiCollectionBucket(t *testing.T) {
 	assert.Equal(t, "c2_value", value)
 
 	// reopen collection, verify retrieval
-	c1copy := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection1"})
+	c1copy, err := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection1"})
+	require.NoError(t, err)
 	_, err = c1copy.Get("doc1", &value)
 	require.NoError(t, err)
 	assert.Equal(t, "c1_value", value)
@@ -42,7 +45,8 @@ func TestMultiCollectionBucket(t *testing.T) {
 	require.NoError(t, err)
 
 	// reopen collection, verify that previous data is not present
-	newC1 := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection1"})
+	newC1, err := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection1"})
+	require.NoError(t, err)
 	_, err = newC1.Get("doc1", &value)
 	require.Error(t, err)
 	require.True(t, errors.As(err, &sgbucket.MissingError{}))
@@ -51,7 +55,8 @@ func TestMultiCollectionBucket(t *testing.T) {
 func TestDefaultCollection(t *testing.T) {
 
 	huddle := NewCollectionBucket("huddle1")
-	c1 := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection1"})
+	c1, err := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection1"})
+	require.NoError(t, err)
 	ok, err := c1.Add("doc1", 0, "c1_value")
 	require.True(t, ok)
 	require.NoError(t, err)
@@ -107,8 +112,10 @@ func TestCollectionMutations(t *testing.T) {
 	huddle := NewCollectionBucket("huddle1")
 	defer huddle.Close()
 
-	collection1 := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection1"})
-	collection2 := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection2"})
+	collection1, err := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection1"})
+	require.NoError(t, err)
+	collection2, err := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection2"})
+	require.NoError(t, err)
 	numDocs := 50
 
 	collectionID_1, _ := huddle.GetCollectionID("scope1", "collection1")
@@ -156,7 +163,7 @@ func TestCollectionMutations(t *testing.T) {
 			"scope1": {"collection1", "collection2"},
 		},
 	}
-	err := huddle.StartDCPFeed(args, callback, nil)
+	err = huddle.StartDCPFeed(args, callback, nil)
 	assertNoError(t, err, "StartTapFeed failed")
 
 	// wait for mutation counts to reach expected

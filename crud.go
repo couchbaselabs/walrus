@@ -98,11 +98,13 @@ var bucketsLock sync.Mutex
 //
 // If the urlStr has any of the forms below it will be considered a filesystem directory
 // path, and the bucket will use a persistent backing file in that directory.
-//		walrus:/foo/bar
-//		walrus:bar
-//		file:///foo/bar
-//		/foo/bar
-//		./bar
+//
+//	walrus:/foo/bar
+//	walrus:bar
+//	file:///foo/bar
+//	/foo/bar
+//	./bar
+//
 // The bucket's filename will be "bucketName.walrus", or if the poolName is not
 // "default", "poolName-bucketName.walrus".
 //
@@ -163,7 +165,7 @@ func (bucket *WalrusBucket) DefaultDataStore() sgbucket.DataStore {
 	return bucket
 }
 
-func (bucket *WalrusBucket) NamedDataStore(name sgbucket.DataStoreName) sgbucket.DataStore {
+func (bucket *WalrusBucket) NamedDataStore(name sgbucket.DataStoreName) (sgbucket.DataStore, error) {
 	panic("NamedDataStore not supported on WalrusBucket")
 }
 
