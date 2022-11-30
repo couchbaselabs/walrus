@@ -118,6 +118,8 @@ func (wh *CollectionBucket) CloseAndDelete() error {
 
 func (wh *CollectionBucket) IsSupported(feature sgbucket.BucketStoreFeature) bool {
 	switch feature {
+	case sgbucket.BucketStoreFeatureCollections:
+		return true
 	case sgbucket.BucketStoreFeatureSubdocOperations:
 		return false
 	case sgbucket.BucketStoreFeatureXattrs:
