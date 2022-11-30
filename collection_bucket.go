@@ -55,6 +55,15 @@ type WalrusCollection struct {
 }
 
 var _ sgbucket.DataStore = &WalrusCollection{}
+var _ sgbucket.DataStoreName = &WalrusCollection{}
+
+func (wh *WalrusCollection) ScopeName() string {
+	return wh.FQName.ScopeName()
+}
+
+func (wh *WalrusCollection) CollectionName() string {
+	return wh.FQName.CollectionName()
+}
 
 func GetCollectionBucket(url, bucketName string) (*CollectionBucket, error) {
 
