@@ -218,9 +218,7 @@ func (wh *CollectionBucket) StartDCPFeed(args sgbucket.FeedArguments, callback s
 	// coalesce doneChans
 	go func() {
 		for _, collection := range requestedCollections {
-			fmt.Printf("before collection done chan %v\n", collection.FQName.String())
 			<-doneChans[collection]
-			fmt.Printf("after collection done chan %v\n", collection.FQName.String())
 		}
 		close(doneChan)
 	}()
