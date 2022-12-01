@@ -65,14 +65,30 @@ func (wh *WalrusCollection) CollectionName() string {
 	return wh.FQName.CollectionName()
 }
 
+var collectionBuckets map[[2]string]*CollectionBucket
+var collectionBucketsLock sync.Mutex
+
 func GetCollectionBucket(url, bucketName string) (*CollectionBucket, error) {
 
-	cb := NewCollectionBucket(bucketName)
+	collectionBucketsLock.Lock()
+	defer collectionBucketsLock.Unlock()
+	if collectionBuckets == nil {
+		collectionBuckets = make(map[[2]string]*CollectionBucket)
+	}
+
+	key := [2]string{url, bucketName}
+	cb, ok := collectionBuckets[key]
+	if ok {
+		return cb, nil
+	}
+
+	cb = NewCollectionBucket(bucketName)
 	dir := bucketURLToDir(url)
 	if dir != "" {
 		// TODO: persistence handling
 		cb.path = dir
 	}
+	collectionBuckets[key] = cb
 	return cb, nil
 }
 
@@ -93,18 +109,28 @@ func (wh *CollectionBucket) UUID() (string, error) {
 	return wh.uuid, nil
 }
 
-func (wh *CollectionBucket) Close() {
-	// Close all associated data stores
-	wh.lock.Lock()
-	defer wh.lock.Unlock()
+func (cb *CollectionBucket) Close() {
+	collectionBucketsLock.Lock()
+	defer collectionBucketsLock.Unlock()
+	for key, value := range collectionBuckets {
+		if value == cb {
+			delete(collectionBuckets, key)
+			break
+		}
+	}
 
-	if wh.path != "" {
+	// Close all associated data stores
+	cb.lock.Lock()
+	defer cb.lock.Unlock()
+
+	if cb.path != "" {
 		// TODO: persist before closing
 	}
 
-	for _, store := range wh.collections {
+	for _, store := range cb.collections {
 		store.Close()
 	}
+
 }
 
 func (wh *CollectionBucket) CloseAndDelete() error {
