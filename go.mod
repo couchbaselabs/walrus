@@ -2,9 +2,6 @@ module github.com/couchbaselabs/walrus
 
 go 1.17
 
-replace (
-	github.com/couchbase/sg-bucket => /Users/adam.fraser/dev/sg-bucket
-)
 require (
 	github.com/couchbase/sg-bucket v0.0.0-20220906164713-c9afe94ac5c8
 	github.com/google/uuid v1.3.0
