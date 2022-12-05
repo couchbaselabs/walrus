@@ -29,6 +29,8 @@ const (
 	SimulatedVBucketCount = 1024 // Used when hashing doc id -> vbno
 )
 
+var _ sgbucket.DataStore = &WalrusBucket{}
+
 var MaxDocSize = 0 // Used during the write function
 
 type DocTooBigErr struct{}
@@ -58,6 +60,8 @@ type WalrusBucket struct {
 	tapFeeds     []*tapFeedImpl
 	walrusData
 }
+
+var _ sgbucket.BucketStore = &WalrusBucket{}
 
 // A document stored in a Bucket's .Docs map
 type walrusDoc struct {
@@ -151,6 +155,18 @@ func bucketURLToDir(urlStr string) (dir string) {
 		}
 	}
 	return
+}
+
+func (bucket *WalrusBucket) ListDataStores() ([]sgbucket.DataStoreName, error) {
+	return []sgbucket.DataStoreName{scopeAndCollection{defaultScopeName, defaultCollectionName}}, nil
+}
+
+func (bucket *WalrusBucket) DefaultDataStore() sgbucket.DataStore {
+	return bucket
+}
+
+func (bucket *WalrusBucket) NamedDataStore(name sgbucket.DataStoreName) sgbucket.DataStore {
+	panic("NamedDataStore not supported on WalrusBucket")
 }
 
 func (bucket *WalrusBucket) VBHash(docID string) uint32 {
@@ -764,21 +780,6 @@ func (bucket *WalrusBucket) UUID() (string, error) {
 	return bucket.uuid, nil
 }
 
-func (bucket *WalrusBucket) IsSupported(feature sgbucket.DataStoreFeature) bool {
-	switch feature {
-	case sgbucket.DataStoreFeatureSubdocOperations:
-		return false
-	case sgbucket.DataStoreFeatureXattrs:
-		return false
-	case sgbucket.DataStoreFeatureN1ql:
-		return false
-	case sgbucket.DataStoreFeatureCrc32cMacroExpansion:
-		return false
-	default:
-		return false
-	}
-}
-
 func (bucket *WalrusBucket) IsError(err error, errorType sgbucket.DataStoreErrorType) bool {
 	if err == nil {
 		return false
@@ -792,7 +793,29 @@ func (bucket *WalrusBucket) IsError(err error, errorType sgbucket.DataStoreError
 	}
 }
 
+func (bucket *WalrusBucket) IsSupported(feature sgbucket.BucketStoreFeature) bool {
+	switch feature {
+	case sgbucket.BucketStoreFeatureSubdocOperations:
+		return false
+	case sgbucket.BucketStoreFeatureXattrs:
+		return false
+	case sgbucket.BucketStoreFeatureN1ql:
+		return false
+	case sgbucket.BucketStoreFeatureCrc32cMacroExpansion:
+		return false
+	default:
+		return false
+	}
+}
+
 func (bucket *WalrusBucket) GetExpiry(k string) (expiry uint32, getMetaError error) {
 	// Walrus does not support expiry, and treats all expiry operations as a noop
 	return 0, errors.New("Walrus does not support document expiry")
+}
+
+func (bucket *WalrusBucket) Exists(k string) (ok bool, err error) {
+	bucket.lock.RLock()
+	defer bucket.lock.RUnlock()
+	_, exists := bucket.Docs[k]
+	return exists, nil
 }

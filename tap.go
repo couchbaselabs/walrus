@@ -2,6 +2,7 @@ package walrus
 
 import (
 	"expvar"
+	"time"
 
 	sgbucket "github.com/couchbase/sg-bucket"
 )
@@ -52,8 +53,15 @@ func (bucket *WalrusBucket) StartDCPFeed(args sgbucket.FeedArguments, callback s
 	}
 
 	go func() {
-		for event := range tapFeed.Events() {
-			callback(event)
+	eventLoop:
+		for {
+			select {
+			case event := <-tapFeed.Events():
+				event.TimeReceived = time.Now()
+				callback(event)
+			case <-args.Terminator:
+				break eventLoop
+			}
 		}
 		if args.DoneChan != nil {
 			close(args.DoneChan)
