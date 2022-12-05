@@ -61,6 +61,8 @@ type WalrusBucket struct {
 	walrusData
 }
 
+var _ sgbucket.BucketStore = &WalrusBucket{}
+
 // A document stored in a Bucket's .Docs map
 type walrusDoc struct {
 	Raw      []byte // Raw data content, or nil if deleted
@@ -151,6 +153,18 @@ func bucketURLToDir(urlStr string) (dir string) {
 		}
 	}
 	return
+}
+
+func (bucket *WalrusBucket) ListDataStores() ([]sgbucket.DataStoreName, error) {
+	return []sgbucket.DataStoreName{scopeAndCollection{defaultScopeName, defaultCollectionName}}, nil
+}
+
+func (bucket *WalrusBucket) DefaultDataStore() sgbucket.DataStore {
+	return bucket
+}
+
+func (bucket *WalrusBucket) NamedDataStore(name sgbucket.DataStoreName) sgbucket.DataStore {
+	panic("NamedDataStore not supported on WalrusBucket")
 }
 
 func (bucket *WalrusBucket) VBHash(docID string) uint32 {
@@ -774,7 +788,29 @@ func (bucket *WalrusBucket) IsError(err error, errorType sgbucket.DataStoreError
 	}
 }
 
+func (bucket *WalrusBucket) IsSupported(feature sgbucket.BucketStoreFeature) bool {
+	switch feature {
+	case sgbucket.BucketStoreFeatureSubdocOperations:
+		return false
+	case sgbucket.BucketStoreFeatureXattrs:
+		return false
+	case sgbucket.BucketStoreFeatureN1ql:
+		return false
+	case sgbucket.BucketStoreFeatureCrc32cMacroExpansion:
+		return false
+	default:
+		return false
+	}
+}
+
 func (bucket *WalrusBucket) GetExpiry(k string) (expiry uint32, getMetaError error) {
 	// Walrus does not support expiry, and treats all expiry operations as a noop
 	return 0, errors.New("Walrus does not support document expiry")
+}
+
+func (bucket *WalrusBucket) Exists(k string) (ok bool, err error) {
+	bucket.lock.RLock()
+	defer bucket.lock.RUnlock()
+	_, exists := bucket.Docs[k]
+	return exists, nil
 }
