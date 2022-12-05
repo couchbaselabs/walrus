@@ -29,6 +29,7 @@ func TestMultiCollectionBucket(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "c1_value", value)
 	_, err = c2.Get("doc1", &value)
+	require.NoError(t, err)
 	assert.Equal(t, "c2_value", value)
 
 	// reopen collection, verify retrieval
@@ -65,6 +66,7 @@ func TestDefaultCollection(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "c1_value", value)
 	_, err = c2.Get("doc1", &value)
+	require.NoError(t, err)
 	assert.Equal(t, "default_value", value)
 
 	// reopen collection, verify retrieval
@@ -162,10 +164,13 @@ func TestCollectionMutations(t *testing.T) {
 	// wait for mutation counts to reach expected
 	expectedCountReached := false
 	for i := 0; i < 100; i++ {
+		callbackMutex.Lock()
 		if c1Count == numDocs && c2Count == numDocs {
+			callbackMutex.Unlock()
 			expectedCountReached = true
 			break
 		}
+		callbackMutex.Unlock()
 		time.Sleep(50 * time.Millisecond)
 	}
 	assert.True(t, expectedCountReached)
