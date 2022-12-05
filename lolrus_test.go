@@ -258,41 +258,6 @@ func TestGets(t *testing.T) {
 
 }
 
-func TestWriteSubDoc(t *testing.T) {
-	bucket := NewBucket("buckit")
-	defer bucket.Close()
-	var expectedCas uint64
-	expectedCas = 2
-
-	rawJson := []byte(`{
-        "walrus":{
-            "foo":"lol",
-            "bar":"baz"}
-        }`)
-
-	added, err := bucket.Add("key", 0, rawJson)
-	assert.NoError(t, err)
-	assert.True(t, added)
-
-	var fullDoc map[string]interface{}
-	cas, err := bucket.Get("key", &fullDoc)
-	assert.NoError(t, err)
-
-	// update json
-	rawJson = []byte(`{
-        "walrus":{
-            "foo":"lol1",
-            "bar":"baz"}
-        }`)
-	// test update using incorrect cas value
-	_, err = bucket.WriteSubDoc("key", "walrus", 10, rawJson)
-	assert.Error(t, err)
-
-	// test update using correct cas value
-	cas, err = bucket.WriteSubDoc("key", "walrus", cas, rawJson)
-	assert.Equal(t, expectedCas, cas)
-}
-
 func TestWriteCas(t *testing.T) {
 
 	bucket := NewBucket("buckit")
