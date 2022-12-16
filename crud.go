@@ -98,11 +98,13 @@ var bucketsLock sync.Mutex
 //
 // If the urlStr has any of the forms below it will be considered a filesystem directory
 // path, and the bucket will use a persistent backing file in that directory.
-//		walrus:/foo/bar
-//		walrus:bar
-//		file:///foo/bar
-//		/foo/bar
-//		./bar
+//
+//	walrus:/foo/bar
+//	walrus:bar
+//	file:///foo/bar
+//	/foo/bar
+//	./bar
+//
 // The bucket's filename will be "bucketName.walrus", or if the poolName is not
 // "default", "poolName-bucketName.walrus".
 //
@@ -445,6 +447,9 @@ func (bucket *WalrusBucket) WriteSubDoc(k string, subdocKey string, cas uint64, 
 	casOut, err = bucket.Get(k, &fullDoc)
 	if err != nil && !errors.Is(err, bucket.missingError(k)) {
 		return 0, err
+	}
+	if cas != 0 && casOut != cas {
+		return 0, fmt.Errorf("error: cas mismatch: %d expected %d received. Unable to update document", cas, casOut)
 	}
 
 	// Set new subdoc value
