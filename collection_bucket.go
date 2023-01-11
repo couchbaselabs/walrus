@@ -166,7 +166,7 @@ func (wh *CollectionBucket) DefaultDataStore() sgbucket.DataStore {
 func (wh *CollectionBucket) NamedDataStore(name sgbucket.DataStoreName) (sgbucket.DataStore, error) {
 	sc, err := newValidScopeAndCollection(name.ScopeName(), name.CollectionName())
 	if err != nil {
-		return nil, fmt.Errorf("attempting to create/update database with a scope/collection that is &s", err)
+		return nil, fmt.Errorf("attempting to create/update database with a scope/collection that is %w", err)
 	}
 	return wh.getOrCreateCollection(sc), nil
 }

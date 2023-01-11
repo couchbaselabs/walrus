@@ -165,8 +165,8 @@ func (bucket *WalrusBucket) DefaultDataStore() sgbucket.DataStore {
 	return bucket
 }
 
-func (bucket *WalrusBucket) NamedDataStore(name sgbucket.DataStoreName) sgbucket.DataStore {
-	panic("NamedDataStore not supported on WalrusBucket")
+func (bucket *WalrusBucket) NamedDataStore(name sgbucket.DataStoreName) (sgbucket.DataStore, error) {
+	return nil, fmt.Errorf("NamedDataStore not supported on WalrusBucket")
 }
 
 func (bucket *WalrusBucket) VBHash(docID string) uint32 {
