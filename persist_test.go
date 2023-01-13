@@ -17,6 +17,7 @@ import (
 
 	sgbucket "github.com/couchbase/sg-bucket"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSave(t *testing.T) {
@@ -25,17 +26,22 @@ func TestSave(t *testing.T) {
 
 	bucket := NewBucket("persisty")
 	defer bucket.Close()
-	bucket.Add("key1", 0, `{"value": 1}`)
-	bucket.AddRaw("key2", 0, []byte("value2"))
+	added, err := bucket.Add("key1", 0, `{"value": 1}`)
+	require.NoError(t, err)
+	require.True(t, added)
+	added, err = bucket.AddRaw("key2", 0, []byte("value2"))
+	require.NoError(t, err)
+	require.True(t, added)
 	bucket.path = kTestPath
-	err := bucket._save()
+	err = bucket._save()
 	assertNoError(t, err, "couldn't save")
 
 	bucket2, err := load(kTestPath)
 	assertNoError(t, err, "couldn't load")
 	assert.Equal(t, bucket.walrusData, bucket2.walrusData)
 
-	bucket.Set("key2", 0, nil, []byte("NEWVALUE2"))
+	err = bucket.Set("key2", 0, nil, []byte("NEWVALUE2"))
+	require.NoError(t, err)
 
 	err = bucket._save()
 	assertNoError(t, err, "couldn't re-save")
@@ -57,7 +63,10 @@ func TestLoadOrNew(t *testing.T) {
 	assertNoError(t, err, "loadOrNew failed")
 	assert.Equal(t, 0, len(bucket.Docs))
 
-	bucket.Add("key9", 0, `{"value": 9}`)
+	added, err := bucket.Add("key9", 0, `{"value": 9}`)
+	require.NoError(t, err)
+	require.True(t, added)
+
 	bucket.Close()
 
 	bucket, err = loadOrNew(kTestPath, "walrus_test_loadOrNew")

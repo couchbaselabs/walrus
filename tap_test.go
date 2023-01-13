@@ -5,14 +5,22 @@ import (
 
 	sgbucket "github.com/couchbase/sg-bucket"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBackfill(t *testing.T) {
 	bucket := NewBucket("buckit")
 	defer bucket.Close()
-	bucket.Add("able", 0, "A")
-	bucket.Add("baker", 0, "B")
-	bucket.Add("charlie", 0, "C")
+
+	added, err := bucket.Add("able", 0, "A")
+	require.NoError(t, err)
+	require.True(t, added)
+	added, err = bucket.Add("baker", 0, "B")
+	require.NoError(t, err)
+	require.True(t, added)
+	added, err = bucket.Add("charlie", 0, "C")
+	require.NoError(t, err)
+	require.True(t, added)
 
 	feed, err := bucket.StartTapFeed(sgbucket.FeedArguments{Backfill: 0, Dump: true}, nil)
 	assertNoError(t, err, "StartTapFeed failed")
@@ -39,21 +47,35 @@ func TestBackfill(t *testing.T) {
 func TestMutations(t *testing.T) {
 	bucket := NewBucket("buckit")
 	defer bucket.Close()
-	bucket.Add("able", 0, "A")
-	bucket.Add("baker", 0, "B")
-	bucket.Add("charlie", 0, "C")
+
+	added, err := bucket.Add("able", 0, "A")
+	require.NoError(t, err)
+	require.True(t, added)
+	added, err = bucket.Add("baker", 0, "B")
+	require.NoError(t, err)
+	require.True(t, added)
+	added, err = bucket.Add("charlie", 0, "C")
+	require.NoError(t, err)
+	require.True(t, added)
 
 	feed, err := bucket.StartTapFeed(sgbucket.FeedArguments{Backfill: sgbucket.FeedNoBackfill}, nil)
 	assertNoError(t, err, "StartTapFeed failed")
 	assert.True(t, feed != nil)
 	defer feed.Close()
 
-	bucket.Add("delta", 0, "D")
-	bucket.Add("eskimo", 0, "E")
+	added, err = bucket.Add("delta", 0, "D")
+	require.NoError(t, err)
+	require.True(t, added)
+	added, err = bucket.Add("eskimo", 0, "E")
+	require.NoError(t, err)
+	require.True(t, added)
 
 	go func() {
-		bucket.Add("fahrvergnügen", 0, "F")
-		bucket.Delete("eskimo")
+		added, err := bucket.Add("fahrvergnügen", 0, "F")
+		require.NoError(t, err)
+		require.True(t, added)
+		err = bucket.Delete("eskimo")
+		require.NoError(t, err)
 	}()
 
 	assert.Equal(t, sgbucket.FeedEvent{Opcode: sgbucket.FeedOpMutation, Key: []byte("delta"), Value: []byte(`"D"`), Cas: 4}, <-feed.Events())

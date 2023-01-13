@@ -19,6 +19,7 @@ import (
 
 	sgbucket "github.com/couchbase/sg-bucket"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func setJSON(bucket sgbucket.DataStore, docid string, jsonDoc string) error {
@@ -36,7 +37,7 @@ func TestDeleteThenAdd(t *testing.T) {
 
 	var value interface{}
 	_, err := bucket.Get("key", &value)
-	assert.Equal(t, sgbucket.MissingError{"key"}, err)
+	assert.Equal(t, sgbucket.MissingError{Key: "key"}, err)
 	added, err := bucket.Add("key", 0, "value")
 	assertNoError(t, err, "Add")
 	assert.True(t, added)
@@ -45,7 +46,7 @@ func TestDeleteThenAdd(t *testing.T) {
 	assert.Equal(t, "value", value)
 	assertNoError(t, bucket.Delete("key"), "Delete")
 	_, err = bucket.Get("key", &value)
-	assert.Equal(t, sgbucket.MissingError{"key"}, err)
+	assert.Equal(t, sgbucket.MissingError{Key: "key"}, err)
 	added, err = bucket.Add("key", 0, "value")
 	assertNoError(t, err, "Add")
 	assert.True(t, added)
@@ -97,7 +98,7 @@ func TestAppend(t *testing.T) {
 	defer bucket.Close()
 
 	err := bucket.Append("key", []byte(" World"))
-	assert.Equal(t, sgbucket.MissingError{"key"}, err)
+	assert.Equal(t, sgbucket.MissingError{Key: "key"}, err)
 
 	err = bucket.SetRaw("key", 0, nil, []byte("Hello"))
 	assertNoError(t, err, "SetRaw")
@@ -120,15 +121,17 @@ func TestView(t *testing.T) {
 	echo, err = bucket.GetDDoc("docname")
 	assert.Equal(t, ddoc, echo)
 
-	setJSON(bucket, "doc1", `{"key": "k1", "value": "v1"}`)
-	setJSON(bucket, "doc2", `{"key": "k2", "value": "v2"}`)
-	setJSON(bucket, "doc3", `{"key": 17, "value": ["v3"]}`)
-	setJSON(bucket, "doc4", `{"key": [17, false], "value": null}`)
-	setJSON(bucket, "doc5", `{"key": [17, true], "value": null}`)
+	require.NoError(t, setJSON(bucket, "doc1", `{"key": "k1", "value": "v1"}`))
+	require.NoError(t, setJSON(bucket, "doc2", `{"key": "k2", "value": "v2"}`))
+	require.NoError(t, setJSON(bucket, "doc3", `{"key": 17, "value": ["v3"]}`))
+	require.NoError(t, setJSON(bucket, "doc4", `{"key": [17, false], "value": null}`))
+	require.NoError(t, setJSON(bucket, "doc5", `{"key": [17, true], "value": null}`))
 
 	// raw docs and counters should not be indexed by views
-	bucket.AddRaw("rawdoc", 0, []byte("this is raw data"))
-	bucket.Incr("counter", 1, 0, 0)
+	_, err = bucket.AddRaw("rawdoc", 0, []byte("this is raw data"))
+	require.NoError(t, err)
+	_, err = bucket.Incr("counter", 1, 0, 0)
+	require.NoError(t, err)
 
 	options := map[string]interface{}{"stale": false}
 	result, err := bucket.View("docname", "view1", options)
@@ -184,7 +187,7 @@ func TestView(t *testing.T) {
 	// Delete the design doc:
 	assertNoError(t, bucket.DeleteDDoc("docname"), "DeleteDDoc")
 	_, getErr := bucket.GetDDoc("docname")
-	assert.True(t, errors.Is(getErr, sgbucket.MissingError{"docname"}))
+	assert.True(t, errors.Is(getErr, sgbucket.MissingError{Key: "docname"}))
 }
 
 func TestCheckDDoc(t *testing.T) {

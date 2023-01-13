@@ -1,6 +1,6 @@
 module github.com/couchbaselabs/walrus
 
-go 1.17
+go 1.19
 
 require (
 	github.com/couchbase/sg-bucket v0.0.0-20230111111902-2b15ee267d36

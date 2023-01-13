@@ -263,7 +263,7 @@ func (wh *CollectionBucket) StartDCPFeed(args sgbucket.FeedArguments, callback s
 	return nil
 }
 
-func (wh CollectionBucket) IsError(err error, errorType sgbucket.DataStoreErrorType) bool {
+func (wh *CollectionBucket) IsError(err error, errorType sgbucket.DataStoreErrorType) bool {
 	if err == nil {
 		return false
 	}
@@ -276,14 +276,14 @@ func (wh CollectionBucket) IsError(err error, errorType sgbucket.DataStoreErrorT
 	}
 }
 
-func (wh CollectionBucket) GetCollectionID(scope, collection string) (uint32, error) {
+func (wh *CollectionBucket) GetCollectionID(scope, collection string) (uint32, error) {
 
 	wh.lock.Lock()
 	defer wh.lock.Unlock()
 	return wh._getCollectionID(scope, collection)
 }
 
-func (wh CollectionBucket) _getCollectionID(scope, collection string) (uint32, error) {
+func (wh *CollectionBucket) _getCollectionID(scope, collection string) (uint32, error) {
 
 	fqName, err := newValidScopeAndCollection(scope, collection)
 	if err != nil {
@@ -292,7 +292,7 @@ func (wh CollectionBucket) _getCollectionID(scope, collection string) (uint32, e
 
 	collectionID, ok := wh.collectionIDs[fqName]
 	if !ok {
-		return 0, sgbucket.MissingError{fqName.String()}
+		return 0, sgbucket.MissingError{Key: fqName.String()}
 	}
 	return collectionID, nil
 }

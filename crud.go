@@ -200,7 +200,7 @@ func (bucket *WalrusBucket) Close() {
 
 	if bucket.Docs != nil {
 		logg("Close %s", bucket.GetName())
-		bucket._closePersist()
+		_ = bucket._closePersist()
 		bucket.Docs = nil
 		bucket.DesignDocs = nil
 		bucket.views = nil
@@ -224,7 +224,7 @@ func (bucket *WalrusBucket) assertNotClosed() {
 
 func (bucket *WalrusBucket) missingError(key string) error {
 	bucket.assertNotClosed()
-	return sgbucket.MissingError{key}
+	return sgbucket.MissingError{Key: key}
 }
 
 //////// GET:
@@ -744,7 +744,7 @@ func (bucket *WalrusBucket) Incr(k string, amt, def uint64, exp uint32) (uint64,
 	} else {
 		bucket.assertNotClosed()
 		if exp < 0 {
-			return 0, sgbucket.MissingError{k}
+			return 0, sgbucket.MissingError{Key: k}
 		}
 		counter = def
 	}
