@@ -38,18 +38,14 @@ func TestDeleteThenAdd(t *testing.T) {
 	var value interface{}
 	_, err := bucket.Get("key", &value)
 	assert.Equal(t, sgbucket.MissingError{Key: "key"}, err)
-	added, err := bucket.Add("key", 0, "value")
-	assertNoError(t, err, "Add")
-	assert.True(t, added)
+	addToBucket(t, bucket, "key", 0, "value")
 	_, err = bucket.Get("key", &value)
 	assertNoError(t, err, "Get")
 	assert.Equal(t, "value", value)
 	assertNoError(t, bucket.Delete("key"), "Delete")
 	_, err = bucket.Get("key", &value)
 	assert.Equal(t, sgbucket.MissingError{Key: "key"}, err)
-	added, err = bucket.Add("key", 0, "value")
-	assertNoError(t, err, "Add")
-	assert.True(t, added)
+	addToBucket(t, bucket, "key", 0, "value")
 }
 
 func TestIncr(t *testing.T) {
@@ -240,9 +236,7 @@ func TestGets(t *testing.T) {
 	defer bucket.Close()
 
 	// Gets (JSON)
-	added, err := bucket.Add("key", 0, "value")
-	assertNoError(t, err, "Add")
-	assert.True(t, added)
+	addToBucket(t, bucket, "key", 0, "value")
 
 	var value interface{}
 	cas, err := bucket.Get("key", &value)
@@ -273,9 +267,7 @@ func TestWriteSubDoc(t *testing.T) {
             "bar":"baz"}
         }`)
 
-	added, err := bucket.Add("key", 0, rawJson)
-	assert.NoError(t, err)
-	assert.True(t, added)
+	addToBucket(t, bucket, "key", 0, rawJson)
 
 	var fullDoc map[string]interface{}
 	cas, err := bucket.Get("key", &fullDoc)
@@ -428,12 +420,8 @@ func TestNonRawBytes(t *testing.T) {
 	assertNoError(t, err, "WriteCas *[]byte")
 
 	// Add with Add - JSON doc as []byte and *[]byte
-	added, err := bucket.Add("add1", 0, byteBody)
-	assertNoError(t, err, "Add []byte")
-	assertTrue(t, added, "Add []byte not added")
-	added, err = bucket.Add("add2", 0, &byteBody)
-	assertNoError(t, err, "Add *[]byte")
-	assertTrue(t, added, "Add *[]byte not added")
+	addToBucket(t, bucket, "add1", 0, byteBody)
+	addToBucket(t, bucket, "add2", 0, &byteBody)
 
 	// Set - JSON doc as []byte
 	// Set - JSON doc as *[]byte
@@ -490,4 +478,10 @@ func assertTrue(t *testing.T, success bool, message string) {
 	if !success {
 		t.Fatalf("%s", message)
 	}
+}
+
+func addToBucket(t *testing.T, bucket *WalrusBucket, key string, exp uint32, value interface{}) {
+	added, err := bucket.Add(key, exp, value)
+	require.NoError(t, err)
+	require.True(t, added)
 }

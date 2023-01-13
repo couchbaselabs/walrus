@@ -26,10 +26,8 @@ func TestSave(t *testing.T) {
 
 	bucket := NewBucket("persisty")
 	defer bucket.Close()
-	added, err := bucket.Add("key1", 0, `{"value": 1}`)
-	require.NoError(t, err)
-	require.True(t, added)
-	added, err = bucket.AddRaw("key2", 0, []byte("value2"))
+	addToBucket(t, bucket, "key1", 0, `{"value": 1}`)
+	added, err := bucket.AddRaw("key2", 0, []byte("value2"))
 	require.NoError(t, err)
 	require.True(t, added)
 	bucket.path = kTestPath
@@ -63,9 +61,7 @@ func TestLoadOrNew(t *testing.T) {
 	assertNoError(t, err, "loadOrNew failed")
 	assert.Equal(t, 0, len(bucket.Docs))
 
-	added, err := bucket.Add("key9", 0, `{"value": 9}`)
-	require.NoError(t, err)
-	require.True(t, added)
+	addToBucket(t, bucket, "key9", 0, `{"value": 9}`)
 
 	bucket.Close()
 
