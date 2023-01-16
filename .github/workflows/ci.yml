@@ -23,17 +23,48 @@ jobs:
       GOPRIVATE: github.com/couchbaselabs
     steps:
       - name: Setup Go Faster
-        uses: WillAbides/setup-go-faster@v1.7.0
+        uses: WillAbides/setup-go-faster@v1.8.0
         with:
-          go-version: ^1.17.5 # >=1.17.5, <2.0.0
+          go-version: ^1.19.5 # >=1.17.5, <2.0.0
       - uses: actions/checkout@v2
       - name: Build
         run: go build -v "./..."
+      - name: Run Tests
+        run: go test -timeout=30m -count=1 -json -v "./..." | tee test.json | jq -s -jr 'sort_by(.Package,.Time) | .[].Output | select (. != null )'
+        shell: bash
+      - name: Annotate Failures
+        if: always()
+        uses: guyarb/golang-test-annotations@v0.6.0
+        with:
+          test-results: test.json
+
+  golangci:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: WillAbides/setup-go-faster@v1.8.0
+        with:
+          go-version: 1.19.5
+      - uses: actions/checkout@v3
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.49.0
+
+  test-race:
+    runs-on: ubuntu-latest
+    env:
+      GOPRIVATE: github.com/couchbaselabs
+    steps:
+      - uses: WillAbides/setup-go-faster@v1.8.0
+        with:
+          go-version: 1.19.5
+      - uses: actions/checkout@v3
       - name: Run Tests
         run: go test -race -timeout=30m -count=1 -json -v "./..." | tee test.json | jq -s -jr 'sort_by(.Package,.Time) | .[].Output | select (. != null )'
         shell: bash
       - name: Annotate Failures
         if: always()
-        uses: guyarb/golang-test-annotations@v0.5.1
+        uses: guyarb/golang-test-annotations@v0.6.0
         with:
           test-results: test.json

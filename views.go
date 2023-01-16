@@ -40,7 +40,7 @@ func (bucket *WalrusBucket) GetDDoc(docname string) (ddoc sgbucket.DesignDoc, er
 
 	design := bucket.DesignDocs[docname]
 	if design == nil {
-		return ddoc, sgbucket.MissingError{docname}
+		return ddoc, sgbucket.MissingError{Key: docname}
 	}
 
 	// Roundtrip thru JSON to return it as mutable copy:
@@ -78,7 +78,7 @@ func (bucket *WalrusBucket) DeleteDDoc(docname string) error {
 	defer bucket.lock.Unlock()
 
 	if bucket.DesignDocs[docname] == nil {
-		return sgbucket.MissingError{docname}
+		return sgbucket.MissingError{Key: docname}
 	}
 	delete(bucket.DesignDocs, docname)
 	delete(bucket.views, docname)
@@ -204,7 +204,7 @@ func (bucket *WalrusBucket) updateView(view *walrusView, toSequence uint64) sgbu
 		)
 		if err != nil {
 			log.Printf("Error running map function: %s", err)
-			output <- sgbucket.ViewError{input.docid, err.Error()}
+			output <- sgbucket.ViewError{From: input.docid, Reason: err.Error()}
 		} else {
 			output <- rows
 		}

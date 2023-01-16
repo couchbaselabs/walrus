@@ -12,6 +12,8 @@ package walrus
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 type collateTest struct {
@@ -189,8 +191,8 @@ func BenchmarkParseAndCollate(b *testing.B) {
 		var collator JSONCollator
 		for _, test := range collateRawTests {
 			var left, right interface{}
-			json.Unmarshal(test.left.([]byte), &left)
-			json.Unmarshal(test.right.([]byte), &right)
+			require.NoError(b, json.Unmarshal(test.left.([]byte), &left))
+			require.NoError(b, json.Unmarshal(test.right.([]byte), &right))
 			result := collator.Collate(left, right)
 			if result != test.result {
 				panic("wrong result")

@@ -5,14 +5,16 @@ import (
 
 	sgbucket "github.com/couchbase/sg-bucket"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBackfill(t *testing.T) {
 	bucket := NewBucket("buckit")
 	defer bucket.Close()
-	bucket.Add("able", 0, "A")
-	bucket.Add("baker", 0, "B")
-	bucket.Add("charlie", 0, "C")
+
+	addToBucket(t, bucket, "able", 0, "A")
+	addToBucket(t, bucket, "baker", 0, "B")
+	addToBucket(t, bucket, "charlie", 0, "C")
 
 	feed, err := bucket.StartTapFeed(sgbucket.FeedArguments{Backfill: 0, Dump: true}, nil)
 	assertNoError(t, err, "StartTapFeed failed")
@@ -39,21 +41,23 @@ func TestBackfill(t *testing.T) {
 func TestMutations(t *testing.T) {
 	bucket := NewBucket("buckit")
 	defer bucket.Close()
-	bucket.Add("able", 0, "A")
-	bucket.Add("baker", 0, "B")
-	bucket.Add("charlie", 0, "C")
+
+	addToBucket(t, bucket, "able", 0, "A")
+	addToBucket(t, bucket, "baker", 0, "B")
+	addToBucket(t, bucket, "charlie", 0, "C")
 
 	feed, err := bucket.StartTapFeed(sgbucket.FeedArguments{Backfill: sgbucket.FeedNoBackfill}, nil)
 	assertNoError(t, err, "StartTapFeed failed")
 	assert.True(t, feed != nil)
 	defer feed.Close()
 
-	bucket.Add("delta", 0, "D")
-	bucket.Add("eskimo", 0, "E")
+	addToBucket(t, bucket, "delta", 0, "D")
+	addToBucket(t, bucket, "eskimo", 0, "E")
 
 	go func() {
-		bucket.Add("fahrvergnügen", 0, "F")
-		bucket.Delete("eskimo")
+		addToBucket(t, bucket, "fahrvergnügen", 0, "F")
+		err = bucket.Delete("eskimo")
+		require.NoError(t, err)
 	}()
 
 	assert.Equal(t, sgbucket.FeedEvent{Opcode: sgbucket.FeedOpMutation, Key: []byte("delta"), Value: []byte(`"D"`), Cas: 4}, <-feed.Events())
