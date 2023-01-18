@@ -342,7 +342,7 @@ func (wh *CollectionBucket) _createCollection(name scopeAndCollection) (sgbucket
 	}
 
 	// Prefix the name with the bucket to ensure cross-bucket isolation for persisted collections
-	bucketPrefixedName := wh.name + ":" + name.String()
+	bucketPrefixedName := wh.name + "." + name.String()
 	if wh.dir == "" {
 		dataStore.WalrusBucket = NewBucket(bucketPrefixedName)
 	} else {
@@ -386,7 +386,10 @@ func (wh *CollectionBucket) dropCollection(name scopeAndCollection) error {
 	}
 
 	collection := wh.collections[collectionID]
-	collection.CloseAndDelete()
+	err := collection.CloseAndDelete()
+	if err != nil {
+		return err
+	}
 
 	delete(wh.collections, collectionID)
 	delete(wh.collectionIDs, name)
@@ -409,7 +412,7 @@ func (sc scopeAndCollection) CollectionName() string {
 }
 
 func (sc scopeAndCollection) String() string {
-	return sc.scope + ":" + sc.collection
+	return sc.scope + "." + sc.collection
 }
 
 func (sc scopeAndCollection) isDefault() bool {
