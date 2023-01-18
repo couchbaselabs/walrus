@@ -13,7 +13,6 @@ import (
 	"errors"
 	"expvar"
 	"fmt"
-	"os"
 	"regexp"
 	"sync"
 
@@ -38,9 +37,9 @@ var (
 // CollectionBucket is an in-memory implementation of a BucketStore.  Individual
 // collections are implemented as standard WalrusBuckets (in-memory DataStore implementations).
 type CollectionBucket struct {
-	path             string
-	name             string
-	uuid             string
+	dir              string                        // persistence directory, passed through to underlying collections to manage their own persistence
+	name             string                        // bucket name
+	uuid             string                        // bucket uuid
 	collectionIDs    map[scopeAndCollection]uint32 // collectionID by scope and collection name
 	collections      map[uint32]*WalrusCollection  // WalrusCollection by collectionID
 	lastCollectionID uint32                        // lastCollectionID assigned, used for collectionID generation
@@ -85,8 +84,7 @@ func GetCollectionBucket(url, bucketName string) (*CollectionBucket, error) {
 	cb = NewCollectionBucket(bucketName)
 	dir := bucketURLToDir(url)
 	if dir != "" {
-		// TODO: persistence handling
-		cb.path = dir
+		cb.dir = dir
 	}
 	collectionBuckets[key] = cb
 	return cb, nil
@@ -110,6 +108,7 @@ func (wh *CollectionBucket) UUID() (string, error) {
 }
 
 func (cb *CollectionBucket) Close() {
+
 	collectionBucketsLock.Lock()
 	defer collectionBucketsLock.Unlock()
 	for key, value := range collectionBuckets {
@@ -118,14 +117,9 @@ func (cb *CollectionBucket) Close() {
 			break
 		}
 	}
-
 	// Close all associated data stores
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
-
-	if cb.path != "" {
-		// TODO: persist before closing
-	}
 
 	for _, store := range cb.collections {
 		store.Close()
@@ -133,13 +127,31 @@ func (cb *CollectionBucket) Close() {
 
 }
 
-func (wh *CollectionBucket) CloseAndDelete() error {
-	path := wh.path
-	wh.Close()
-	if path == "" {
+// CloseAndDelete calls closeAndDelete on the underlying buckets when using persisted buckets
+func (cb *CollectionBucket) CloseAndDelete() error {
+
+	if cb.dir == "" {
+		cb.Close()
 		return nil
 	}
-	return os.Remove(path)
+
+	collectionBucketsLock.Lock()
+	defer collectionBucketsLock.Unlock()
+	for key, value := range collectionBuckets {
+		if value == cb {
+			delete(collectionBuckets, key)
+			break
+		}
+	}
+	// Close all associated data stores
+	cb.lock.Lock()
+	defer cb.lock.Unlock()
+
+	for _, store := range cb.collections {
+		// Ignore error on collection CloseAndDelete, as unused collections (no persisted docs) will return a not found error
+		_ = store.CloseAndDelete()
+	}
+	return nil
 }
 
 func (wh *CollectionBucket) IsSupported(feature sgbucket.BucketStoreFeature) bool {
@@ -160,7 +172,12 @@ func (wh *CollectionBucket) IsSupported(feature sgbucket.BucketStoreFeature) boo
 }
 
 func (wh *CollectionBucket) DefaultDataStore() sgbucket.DataStore {
-	return wh.getOrCreateCollection(scopeAndCollection{defaultScopeName, defaultCollectionName})
+	collection, err := wh.getOrCreateCollection(scopeAndCollection{defaultScopeName, defaultCollectionName})
+	if err != nil {
+		logg("Unable to retrieve DefaultDataStore for walrus CollectionBucket: %v", err)
+		return nil
+	}
+	return collection
 }
 
 func (wh *CollectionBucket) NamedDataStore(name sgbucket.DataStoreName) (sgbucket.DataStore, error) {
@@ -168,7 +185,12 @@ func (wh *CollectionBucket) NamedDataStore(name sgbucket.DataStoreName) (sgbucke
 	if err != nil {
 		return nil, fmt.Errorf("attempting to create/update database with a scope/collection that is %w", err)
 	}
-	return wh.getOrCreateCollection(sc), nil
+
+	collection, err := wh.getOrCreateCollection(sc)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to retrieve NamedDataStore for walrus CollectionBucket: %v", err)
+	}
+	return collection, nil
 }
 
 func (wh *CollectionBucket) CreateDataStore(name sgbucket.DataStoreName) error {
@@ -176,8 +198,8 @@ func (wh *CollectionBucket) CreateDataStore(name sgbucket.DataStoreName) error {
 	if err != nil {
 		return err
 	}
-	_ = wh.createCollection(sc)
-	return nil
+	_, err = wh.createCollection(sc)
+	return err
 }
 
 func (wh *CollectionBucket) DropDataStore(name sgbucket.DataStoreName) error {
@@ -297,7 +319,7 @@ func (wh *CollectionBucket) _getCollectionID(scope, collection string) (uint32, 
 	return collectionID, nil
 }
 
-func (wh *CollectionBucket) createCollection(name scopeAndCollection) sgbucket.DataStore {
+func (wh *CollectionBucket) createCollection(name scopeAndCollection) (sgbucket.DataStore, error) {
 
 	wh.lock.Lock()
 	defer wh.lock.Unlock()
@@ -305,7 +327,7 @@ func (wh *CollectionBucket) createCollection(name scopeAndCollection) sgbucket.D
 	return wh._createCollection(name)
 }
 
-func (wh *CollectionBucket) _createCollection(name scopeAndCollection) sgbucket.DataStore {
+func (wh *CollectionBucket) _createCollection(name scopeAndCollection) (sgbucket.DataStore, error) {
 
 	collectionID := uint32(0)
 
@@ -316,24 +338,34 @@ func (wh *CollectionBucket) _createCollection(name scopeAndCollection) sgbucket.
 
 	dataStore := &WalrusCollection{
 		FQName:       name,
-		WalrusBucket: NewBucket(name.String()),
 		CollectionID: collectionID,
 	}
 
+	// Prefix the name with the bucket to ensure cross-bucket isolation for persisted collections
+	bucketPrefixedName := wh.name + ":" + name.String()
+	if wh.dir == "" {
+		dataStore.WalrusBucket = NewBucket(bucketPrefixedName)
+	} else {
+		var err error
+		dataStore.WalrusBucket, err = NewPersistentBucket(wh.dir, "", bucketPrefixedName)
+		if err != nil {
+			return nil, err
+		}
+	}
 	wh.collections[collectionID] = dataStore
 	wh.collectionIDs[name] = collectionID
 
-	return dataStore
+	return dataStore, nil
 }
 
-func (wh *CollectionBucket) getOrCreateCollection(name scopeAndCollection) sgbucket.DataStore {
+func (wh *CollectionBucket) getOrCreateCollection(name scopeAndCollection) (sgbucket.DataStore, error) {
 
 	wh.lock.Lock()
 	defer wh.lock.Unlock()
 
 	collectionID, ok := wh.collectionIDs[name]
 	if ok {
-		return wh.collections[collectionID]
+		return wh.collections[collectionID], nil
 	}
 
 	return wh._createCollection(name)
@@ -354,7 +386,7 @@ func (wh *CollectionBucket) dropCollection(name scopeAndCollection) error {
 	}
 
 	collection := wh.collections[collectionID]
-	collection.Close()
+	collection.CloseAndDelete()
 
 	delete(wh.collections, collectionID)
 	delete(wh.collectionIDs, name)
