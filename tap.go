@@ -1,7 +1,6 @@
 package walrus
 
 import (
-	"context"
 	"expvar"
 	"time"
 
@@ -46,7 +45,7 @@ func (bucket *WalrusBucket) StartTapFeed(args sgbucket.FeedArguments, dbStats *e
 }
 
 // Until a full DCP implementation is available, walrus wraps tap feed to invoke callback
-func (bucket *WalrusBucket) StartDCPFeed(ctx context.Context, args sgbucket.FeedArguments, callback sgbucket.FeedEventCallbackFunc, dbStats *expvar.Map) error {
+func (bucket *WalrusBucket) StartDCPFeed(args sgbucket.FeedArguments, callback sgbucket.FeedEventCallbackFunc, dbStats *expvar.Map) error {
 
 	tapFeed, err := bucket.StartTapFeed(args, dbStats)
 	if err != nil {
