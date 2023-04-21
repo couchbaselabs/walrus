@@ -13,6 +13,17 @@ on:
       - 'release/*'
 
 jobs:
+  addlicense:
+    name: addlicense
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 1.20.3
+      - run: go install github.com/google/addlicense@latest
+      - uses: actions/checkout@v3
+      - run: addlicense -check -f licenses/addlicense.tmpl .
+
   test:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -25,7 +36,7 @@ jobs:
       - name: Setup Go Faster
         uses: WillAbides/setup-go-faster@v1.8.0
         with:
-          go-version: ^1.19.5 # >=1.17.5, <2.0.0
+          go-version: 1.20.3
       - uses: actions/checkout@v2
       - name: Build
         run: go build -v "./..."
@@ -44,12 +55,12 @@ jobs:
     steps:
       - uses: WillAbides/setup-go-faster@v1.8.0
         with:
-          go-version: 1.19.5
+          go-version: 1.20.3
       - uses: actions/checkout@v3
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
-          version: v1.49.0
+          version: v1.52.0
 
   test-race:
     runs-on: ubuntu-latest
@@ -58,7 +69,7 @@ jobs:
     steps:
       - uses: WillAbides/setup-go-faster@v1.8.0
         with:
-          go-version: 1.19.5
+          go-version: 1.20.3
       - uses: actions/checkout@v3
       - name: Run Tests
         run: go test -race -timeout=30m -count=1 -json -v "./..." | tee test.json | jq -s -jr 'sort_by(.Package,.Time) | .[].Output | select (. != null )'
