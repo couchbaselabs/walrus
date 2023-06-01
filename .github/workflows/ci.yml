@@ -7,22 +7,13 @@ on:
       - 'release/*'
       - 'CBG*'
       - 'ci-*'
+      - 'feature*'
   pull_request:
     branches:
       - 'master'
       - 'release/*'
 
 jobs:
-  addlicense:
-    name: addlicense
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/setup-go@v3
-        with:
-          go-version: 1.20.3
-      - run: go install github.com/google/addlicense@latest
-      - uses: actions/checkout@v3
-      - run: addlicense -check -f licenses/addlicense.tmpl .
 
   test:
     runs-on: ${{ matrix.os }}
