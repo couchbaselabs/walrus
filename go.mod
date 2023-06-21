@@ -3,7 +3,7 @@ module github.com/couchbaselabs/walrus
 go 1.19
 
 require (
-	github.com/couchbase/sg-bucket v0.0.0-20230113211151-ac6a75f57046
+	github.com/couchbase/sg-bucket v0.0.0-20230621190434-094b02ed39d2
 	github.com/google/uuid v1.3.0
 	github.com/stretchr/testify v1.7.1
 	golang.org/x/text v0.3.7
@@ -15,6 +15,7 @@ require (
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/robertkrimen/otto v0.0.0-20211024170158-b87d35c0b86f // indirect
+	github.com/snej/v8go v1.7.3 // indirect
 	golang.org/x/net v0.0.0-20220822230855-b0a4917ee28c // indirect
 	gopkg.in/couchbase/gocb.v1 v1.6.7 // indirect
 	gopkg.in/couchbase/gocbcore.v7 v7.1.18 // indirect
@@ -22,4 +23,5 @@ require (
 	gopkg.in/couchbaselabs/jsonx.v1 v1.0.1 // indirect
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
+	rogchap.com/v8go v0.8.0 // indirect
 )

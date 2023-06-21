@@ -1,6 +1,7 @@
 package walrus
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"sync"
 
 	sgbucket "github.com/couchbase/sg-bucket"
+	"github.com/couchbase/sg-bucket/js"
 )
 
 // A single view stored in a Bucket.
@@ -21,6 +23,21 @@ type walrusView struct {
 
 // Stores view functions for use by a Bucket.
 type walrusDesignDoc map[string]*walrusView
+
+// Sets a custom JavaScript VM or VMPool for use by map functions.
+// If you don't call this, Walrus defaults to using a VMPool of 4 Otto VMs.
+func (bucket *WalrusBucket) SetJavaScriptHost(host js.ServiceHost) {
+	bucket.lock.Lock()
+	bucket.jsHost = host
+	bucket.lock.Unlock()
+}
+
+func (bucket *WalrusBucket) _getJSHost() js.ServiceHost {
+	if bucket.jsHost == nil {
+		bucket.jsHost = js.NewVMPool(context.TODO(), js.Otto, 4)
+	}
+	return bucket.jsHost
+}
 
 func (bucket *WalrusBucket) GetDDocs() (ddocs map[string]sgbucket.DesignDoc, err error) {
 	bucket.lock.Lock()
@@ -91,7 +108,7 @@ func (bucket *WalrusBucket) _compileDesignDoc(docname string, design *sgbucket.D
 	}
 	ddoc := walrusDesignDoc{}
 	for name, fns := range design.Views {
-		jsserver := sgbucket.NewJSMapFunction(fns.Map, 0)
+		jsserver := sgbucket.NewJSMapFunction(bucket._getJSHost(), fns.Map, 0)
 		view := &walrusView{
 			mapFunction:    jsserver,
 			reduceFunction: fns.Reduce,
@@ -197,6 +214,7 @@ func (bucket *WalrusBucket) updateView(view *walrusView, toSequence uint64) sgbu
 	mapFunction := view.mapFunction
 	mapper := func(input jsMapFunctionInput, output chan<- interface{}) {
 		rows, err := mapFunction.CallFunction(
+			bucket._getJSHost().Context(),
 			string(input.raw),
 			input.docid,
 			input.vbNo,
@@ -311,3 +329,5 @@ func (bucket *WalrusBucket) Dump() {
 	}
 	fmt.Printf("==== End bucket %q\n", bucket.name)
 }
+
+var _ sgbucket.ViewStore = &WalrusBucket{}

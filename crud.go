@@ -22,6 +22,7 @@ import (
 	"time"
 
 	sgbucket "github.com/couchbase/sg-bucket"
+	"github.com/couchbase/sg-bucket/js"
 	"github.com/google/uuid"
 )
 
@@ -57,7 +58,8 @@ type WalrusBucket struct {
 	lock         sync.RWMutex               // For thread-safety
 	views        map[string]walrusDesignDoc // Stores runtime view/index data
 	vbSeqs       sgbucket.VbucketSeqCounter // Per-vb sequence couner
-	tapFeeds     []*tapFeedImpl
+	tapFeeds     []*tapFeedImpl             // Active feeds
+	jsHost       js.ServiceHost             // VM or VMPool that runs map functions
 	walrusData
 }
 

@@ -10,6 +10,7 @@
 package walrus
 
 import (
+	"context"
 	"errors"
 	"expvar"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"sync"
 
 	sgbucket "github.com/couchbase/sg-bucket"
+	"github.com/couchbase/sg-bucket/js"
 	"github.com/google/uuid"
 )
 
@@ -43,6 +45,7 @@ type CollectionBucket struct {
 	collectionIDs    map[scopeAndCollection]uint32 // collectionID by scope and collection name
 	collections      map[uint32]*WalrusCollection  // WalrusCollection by collectionID
 	lastCollectionID uint32                        // lastCollectionID assigned, used for collectionID generation
+	jsHost           js.ServiceHost                // VM or VMPool that runs map functions
 	lock             sync.Mutex                    // mutex for synchronized access to CollectionBucket
 }
 
@@ -352,6 +355,12 @@ func (wh *CollectionBucket) _createCollection(name scopeAndCollection) (sgbucket
 			return nil, err
 		}
 	}
+
+	if wh.jsHost == nil {
+		wh.jsHost = js.NewVMPool(context.TODO(), js.Otto, 4)
+	}
+	dataStore.WalrusBucket.SetJavaScriptHost(wh.jsHost)
+
 	wh.collections[collectionID] = dataStore
 	wh.collectionIDs[name] = collectionID
 
@@ -394,6 +403,16 @@ func (wh *CollectionBucket) dropCollection(name scopeAndCollection) error {
 	delete(wh.collections, collectionID)
 	delete(wh.collectionIDs, name)
 	return nil
+}
+
+func (wh *CollectionBucket) SetJavaScriptHost(host js.ServiceHost) {
+	wh.lock.Lock()
+	defer wh.lock.Unlock()
+
+	wh.jsHost = host
+	for _, collection := range wh.collections {
+		collection.SetJavaScriptHost(host)
+	}
 }
 
 // scopeAndCollection stores the (scope name, collection name) tuple for collectionID storage and retrieval
