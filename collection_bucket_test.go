@@ -1,6 +1,7 @@
 package walrus
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -138,7 +139,7 @@ func TestCollectionMutations(t *testing.T) {
 	c1Keys := make(map[string]struct{})
 	c2Keys := make(map[string]struct{})
 
-	callback := func(event sgbucket.FeedEvent) bool {
+	callback := func(_ context.Context, event sgbucket.FeedEvent) bool {
 		if event.Opcode != sgbucket.FeedOpMutation {
 			return false
 		}
@@ -165,7 +166,7 @@ func TestCollectionMutations(t *testing.T) {
 			"scope1": {"collection1", "collection2"},
 		},
 	}
-	err = huddle.StartDCPFeed(args, callback, nil)
+	err = huddle.StartDCPFeed(context.TODO(), args, callback, nil)
 	assertNoError(t, err, "StartTapFeed failed")
 
 	// wait for mutation counts to reach expected
