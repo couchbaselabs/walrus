@@ -59,7 +59,7 @@ func (bucket *WalrusBucket) StartDCPFeed(ctx context.Context, args sgbucket.Feed
 			select {
 			case event := <-tapFeed.Events():
 				event.TimeReceived = time.Now()
-				callback(ctx, event)
+				callback(event)
 			case <-args.Terminator:
 				break eventLoop
 			}

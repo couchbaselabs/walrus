@@ -261,9 +261,9 @@ func (wh *CollectionBucket) StartDCPFeed(ctx context.Context, args sgbucket.Feed
 		// Not bothering to remove scopes from args for the single collection feeds
 		// here because it's ignored by WalrusBucket's StartDCPFeed
 		collectionID := collection.CollectionID
-		collectionAwareCallback := func(ctx context.Context, event sgbucket.FeedEvent) bool {
+		collectionAwareCallback := func(event sgbucket.FeedEvent) bool {
 			event.CollectionID = collectionID
-			return callback(ctx, event)
+			return callback(event)
 		}
 
 		// have each collection maintain its own doneChan

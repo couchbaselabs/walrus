@@ -139,7 +139,7 @@ func TestCollectionMutations(t *testing.T) {
 	c1Keys := make(map[string]struct{})
 	c2Keys := make(map[string]struct{})
 
-	callback := func(_ context.Context, event sgbucket.FeedEvent) bool {
+	callback := func(event sgbucket.FeedEvent) bool {
 		if event.Opcode != sgbucket.FeedOpMutation {
 			return false
 		}
