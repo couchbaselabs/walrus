@@ -10,6 +10,7 @@
 package walrus
 
 import (
+	"context"
 	"errors"
 	"expvar"
 	"fmt"
@@ -229,14 +230,14 @@ func (wh *CollectionBucket) StartTapFeed(args sgbucket.FeedArguments, dbStats *e
 // StartDCPFeed implements a multi-collection feed by calling StartDCPFeed for each
 // requested collection.  Each collection's DCP feed runs its own goroutine, callback may be invoked
 // concurrently by these goroutines.
-func (wh *CollectionBucket) StartDCPFeed(args sgbucket.FeedArguments, callback sgbucket.FeedEventCallbackFunc, dbStats *expvar.Map) error {
+func (wh *CollectionBucket) StartDCPFeed(ctx context.Context, args sgbucket.FeedArguments, callback sgbucket.FeedEventCallbackFunc, dbStats *expvar.Map) error {
 	wh.lock.Lock()
 	defer wh.lock.Unlock()
 	// If no scopes are specified, return feed for the default collection, if it exists
 	if args.Scopes == nil || len(args.Scopes) == 0 {
 		defaultCollection, ok := wh.collections[defaultCollectionID]
 		if ok {
-			return defaultCollection.StartDCPFeed(args, callback, dbStats)
+			return defaultCollection.StartDCPFeed(ctx, args, callback, dbStats)
 		} else {
 			return errors.New("No scopes specified in feed arguments, and default collection does not exist")
 		}
@@ -271,7 +272,7 @@ func (wh *CollectionBucket) StartDCPFeed(args sgbucket.FeedArguments, callback s
 		argsCopy.DoneChan = doneChans[collection]
 
 		// Ignoring error is safe because WalrusBucket doesn't have error scenarios for StartDCPFeed
-		_ = collection.StartDCPFeed(argsCopy, collectionAwareCallback, dbStats)
+		_ = collection.StartDCPFeed(ctx, argsCopy, collectionAwareCallback, dbStats)
 	}
 
 	// coalesce doneChans
