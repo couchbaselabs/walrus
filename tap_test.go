@@ -1,6 +1,7 @@
 package walrus
 
 import (
+	"context"
 	"testing"
 
 	sgbucket "github.com/couchbase/sg-bucket"
@@ -10,7 +11,7 @@ import (
 
 func TestBackfill(t *testing.T) {
 	bucket := NewBucket("buckit")
-	defer bucket.Close()
+	defer bucket.Close(context.TODO())
 
 	addToBucket(t, bucket, "able", 0, "A")
 	addToBucket(t, bucket, "baker", 0, "B")
@@ -40,7 +41,7 @@ func TestBackfill(t *testing.T) {
 
 func TestMutations(t *testing.T) {
 	bucket := NewBucket("buckit")
-	defer bucket.Close()
+	defer bucket.Close(context.TODO())
 
 	addToBucket(t, bucket, "able", 0, "A")
 	addToBucket(t, bucket, "baker", 0, "B")

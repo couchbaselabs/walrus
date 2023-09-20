@@ -11,6 +11,7 @@ package walrus
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -33,7 +34,7 @@ func setJSON(bucket sgbucket.DataStore, docid string, jsonDoc string) error {
 
 func TestDeleteThenAdd(t *testing.T) {
 	bucket := NewBucket("buckit")
-	defer bucket.Close()
+	defer bucket.Close(context.TODO())
 
 	var value interface{}
 	_, err := bucket.Get("key", &value)
@@ -50,7 +51,7 @@ func TestDeleteThenAdd(t *testing.T) {
 
 func TestIncr(t *testing.T) {
 	bucket := NewBucket("buckit")
-	defer bucket.Close()
+	defer bucket.Close(context.TODO())
 	count, err := bucket.Incr("count1", 1, 100, 0)
 	assertNoError(t, err, "Incr")
 	assert.Equal(t, uint64(100), count)
@@ -71,7 +72,7 @@ func TestIncr(t *testing.T) {
 // Spawns 1000 goroutines that 'simultaneously' use Incr to increment the same counter by 1.
 func TestIncrAtomic(t *testing.T) {
 	bucket := NewBucket("buckit")
-	defer bucket.Close()
+	defer bucket.Close(context.TODO())
 	var waiters sync.WaitGroup
 	numIncrements := 1000
 	waiters.Add(numIncrements)
@@ -91,7 +92,7 @@ func TestIncrAtomic(t *testing.T) {
 
 func TestAppend(t *testing.T) {
 	bucket := NewBucket("buckit")
-	defer bucket.Close()
+	defer bucket.Close(context.TODO())
 
 	err := bucket.Append("key", []byte(" World"))
 	assert.Equal(t, sgbucket.MissingError{Key: "key"}, err)
@@ -109,8 +110,8 @@ func TestAppend(t *testing.T) {
 func TestView(t *testing.T) {
 	ddoc := sgbucket.DesignDoc{Views: sgbucket.ViewMap{"view1": sgbucket.ViewDef{Map: `function(doc){if (doc.key) emit(doc.key,doc.value)}`}}}
 	bucket := NewBucket("buckit")
-	defer bucket.Close()
-	err := bucket.PutDDoc("docname", &ddoc)
+	defer bucket.Close(context.TODO())
+	err := bucket.PutDDoc(context.TODO(), "docname", &ddoc)
 	assertNoError(t, err, "PutDDoc failed")
 
 	var echo sgbucket.DesignDoc
@@ -130,7 +131,7 @@ func TestView(t *testing.T) {
 	require.NoError(t, err)
 
 	options := map[string]interface{}{"stale": false}
-	result, err := bucket.View("docname", "view1", options)
+	result, err := bucket.View(context.TODO(), "docname", "view1", options)
 	assertNoError(t, err, "View call failed")
 	assert.Equal(t, 5, result.TotalRows)
 	assert.Equal(t, &sgbucket.ViewRow{ID: "doc3", Key: 17.0, Value: []interface{}{"v3"}}, result.Rows[0])
@@ -142,7 +143,7 @@ func TestView(t *testing.T) {
 	// Try a startkey:
 	options["startkey"] = "k2"
 	options["include_docs"] = true
-	result, err = bucket.View("docname", "view1", options)
+	result, err = bucket.View(context.TODO(), "docname", "view1", options)
 	assertNoError(t, err, "View call failed")
 	assert.Equal(t, 3, result.TotalRows)
 	var expectedDoc interface{} = map[string]interface{}{"key": "k2", "value": "v2"}
@@ -151,7 +152,7 @@ func TestView(t *testing.T) {
 
 	// Try an endkey:
 	options["endkey"] = "k2"
-	result, err = bucket.View("docname", "view1", options)
+	result, err = bucket.View(context.TODO(), "docname", "view1", options)
 	assertNoError(t, err, "View call failed")
 	assert.Equal(t, 1, result.TotalRows)
 	assert.Equal(t, &sgbucket.ViewRow{ID: "doc2", Key: "k2", Value: "v2",
@@ -159,7 +160,7 @@ func TestView(t *testing.T) {
 
 	// Try an endkey out of range:
 	options["endkey"] = "k999"
-	result, err = bucket.View("docname", "view1", options)
+	result, err = bucket.View(context.TODO(), "docname", "view1", options)
 	assertNoError(t, err, "View call failed")
 	assert.Equal(t, 1, result.TotalRows)
 	assert.Equal(t, &sgbucket.ViewRow{ID: "doc2", Key: "k2", Value: "v2",
@@ -168,13 +169,13 @@ func TestView(t *testing.T) {
 	// Try without inclusive_end:
 	options["endkey"] = "k2"
 	options["inclusive_end"] = false
-	result, err = bucket.View("docname", "view1", options)
+	result, err = bucket.View(context.TODO(), "docname", "view1", options)
 	assertNoError(t, err, "View call failed")
 	assert.Equal(t, 0, result.TotalRows)
 
 	// Try a single key:
 	options = map[string]interface{}{"stale": false, "key": "k2", "include_docs": true}
-	result, err = bucket.View("docname", "view1", options)
+	result, err = bucket.View(context.TODO(), "docname", "view1", options)
 	assertNoError(t, err, "View call failed")
 	assert.Equal(t, 1, result.TotalRows)
 	assert.Equal(t, &sgbucket.ViewRow{ID: "doc2", Key: "k2", Value: "v2",
@@ -198,10 +199,11 @@ func TestCheckDDoc(t *testing.T) {
 func TestGetDDocs(t *testing.T) {
 	ddoc := sgbucket.DesignDoc{Views: sgbucket.ViewMap{"view1": sgbucket.ViewDef{Map: `function(doc){if (doc.key) emit(doc.key,doc.value)}`}}}
 	bucket := NewBucket("buckit")
-	defer bucket.Close()
-	err := bucket.PutDDoc("docname", &ddoc)
+	ctx := context.TODO()
+	defer bucket.Close(ctx)
+	err := bucket.PutDDoc(ctx, "docname", &ddoc)
 	assertNoError(t, err, "PutDDoc docnamefailed")
-	err = bucket.PutDDoc("docname2", &ddoc)
+	err = bucket.PutDDoc(ctx, "docname2", &ddoc)
 	assertNoError(t, err, "PutDDoc docname2failed")
 
 	ddocs, getErr := bucket.GetDDocs()
@@ -212,7 +214,7 @@ func TestGetDDocs(t *testing.T) {
 func TestGetBulkRaw(t *testing.T) {
 
 	bucket := NewBucket("buckit")
-	defer bucket.Close()
+	defer bucket.Close(context.TODO())
 
 	// add two keys
 	err := bucket.SetRaw("key1", 0, nil, []byte("value1"))
@@ -233,7 +235,7 @@ func TestGets(t *testing.T) {
 
 	bucket := NewBucket("buckit")
 
-	defer bucket.Close()
+	defer bucket.Close(context.TODO())
 
 	// Gets (JSON)
 	addToBucket(t, bucket, "key", 0, "value")
@@ -257,7 +259,7 @@ func TestGets(t *testing.T) {
 
 func TestWriteSubDoc(t *testing.T) {
 	bucket := NewBucket("buckit")
-	defer bucket.Close()
+	defer bucket.Close(context.TODO())
 	var expectedCas uint64
 	expectedCas = 2
 
@@ -280,15 +282,15 @@ func TestWriteSubDoc(t *testing.T) {
             "bar":"baz"}
         }`)
 	// test update using incorrect cas value
-	_, err = bucket.WriteSubDoc("key", "walrus", 10, rawJson)
+	_, err = bucket.WriteSubDoc(context.TODO(), "key", "walrus", 10, rawJson)
 	assert.Error(t, err)
 
 	// test update using correct cas value
-	cas, err = bucket.WriteSubDoc("key", "walrus", cas, rawJson)
+	cas, err = bucket.WriteSubDoc(context.TODO(), "key", "walrus", cas, rawJson)
 	assert.Equal(t, expectedCas, cas)
 
 	// test update using 0 cas value
-	cas, err = bucket.WriteSubDoc("key", "walrus", 0, rawJson)
+	cas, err = bucket.WriteSubDoc(context.TODO(), "key", "walrus", 0, rawJson)
 	expectedCas = 3
 	assert.Equal(t, expectedCas, cas)
 }
@@ -297,7 +299,7 @@ func TestWriteCas(t *testing.T) {
 
 	bucket := NewBucket("buckit")
 
-	defer bucket.Close()
+	defer bucket.Close(context.TODO())
 
 	// Add with WriteCas - JSON docs
 	// Insert
@@ -371,7 +373,7 @@ func TestRemove(t *testing.T) {
 
 	bucket := NewBucket("buckit")
 
-	defer bucket.Close()
+	defer bucket.Close(context.TODO())
 
 	// Add with WriteCas - JSON docs
 	// Insert
@@ -407,9 +409,10 @@ func TestRemove(t *testing.T) {
 // Test read and write of json as []byte
 func TestNonRawBytes(t *testing.T) {
 
+	ctx := context.TODO()
 	bucket := NewBucket("byteCheckBucket")
 
-	defer bucket.Close()
+	defer bucket.Close(ctx)
 
 	byteBody := []byte(`{"value":"value1"}`)
 
@@ -457,11 +460,11 @@ func TestNonRawBytes(t *testing.T) {
 
 	// Verify values are stored as JSON and can be retrieved via view
 	ddoc := sgbucket.DesignDoc{Views: sgbucket.ViewMap{"view1": sgbucket.ViewDef{Map: `function(doc){if (doc.value) emit(doc.key,doc.value)}`}}}
-	err = bucket.PutDDoc("docname", &ddoc)
+	err = bucket.PutDDoc(ctx, "docname", &ddoc)
 	assertNoError(t, err, "PutDDoc failed")
 
 	options := map[string]interface{}{"stale": false}
-	result, err := bucket.View("docname", "view1", options)
+	result, err := bucket.View(ctx, "docname", "view1", options)
 	assertNoError(t, err, "View call failed")
 	assert.Equal(t, len(keySet), result.TotalRows)
 }

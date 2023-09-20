@@ -1,6 +1,7 @@
 package walrus
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -50,7 +51,7 @@ func (bucket *WalrusBucket) GetDDoc(docname string) (ddoc sgbucket.DesignDoc, er
 	return ddoc, nil
 }
 
-func (bucket *WalrusBucket) PutDDoc(docname string, design *sgbucket.DesignDoc) error {
+func (bucket *WalrusBucket) PutDDoc(_ context.Context, docname string, design *sgbucket.DesignDoc) error {
 	err := CheckDDoc(design)
 	if err != nil {
 		return err
@@ -91,7 +92,7 @@ func (bucket *WalrusBucket) _compileDesignDoc(docname string, design *sgbucket.D
 	}
 	ddoc := walrusDesignDoc{}
 	for name, fns := range design.Views {
-		jsserver := sgbucket.NewJSMapFunction(fns.Map, 0)
+		jsserver := sgbucket.NewJSMapFunction(context.TODO(), fns.Map, 0)
 		view := &walrusView{
 			mapFunction:    jsserver,
 			reduceFunction: fns.Reduce,
@@ -133,7 +134,7 @@ func (bucket *WalrusBucket) findView(docName, viewName string, staleOK bool) (vi
 	return
 }
 
-func (bucket *WalrusBucket) View(docName, viewName string, params map[string]interface{}) (sgbucket.ViewResult, error) {
+func (bucket *WalrusBucket) View(_ context.Context, docName, viewName string, params map[string]interface{}) (sgbucket.ViewResult, error) {
 	// Note: This method itself doesn't lock, so it shouldn't access bucket fields directly.
 	logg("View(%q, %q) ...", docName, viewName)
 
@@ -158,8 +159,8 @@ func (bucket *WalrusBucket) View(docName, viewName string, params map[string]int
 	return sgbucket.ProcessViewResult(result, params, bucket, view.reduceFunction)
 }
 
-func (bucket *WalrusBucket) ViewQuery(ddoc, name string, params map[string]interface{}) (sgbucket.QueryResultIterator, error) {
-	viewResult, err := bucket.View(ddoc, name, params)
+func (bucket *WalrusBucket) ViewQuery(ctx context.Context, ddoc, name string, params map[string]interface{}) (sgbucket.QueryResultIterator, error) {
+	viewResult, err := bucket.View(ctx, ddoc, name, params)
 	return &viewResult, err
 }
 
@@ -197,6 +198,7 @@ func (bucket *WalrusBucket) updateView(view *walrusView, toSequence uint64) sgbu
 	mapFunction := view.mapFunction
 	mapper := func(input jsMapFunctionInput, output chan<- interface{}) {
 		rows, err := mapFunction.CallFunction(
+			context.TODO(),
 			string(input.raw),
 			input.docid,
 			input.vbNo,
@@ -270,8 +272,8 @@ func (bucket *WalrusBucket) updateView(view *walrusView, toSequence uint64) sgbu
 	return view.index
 }
 
-func (bucket *WalrusBucket) ViewCustom(ddoc, name string, params map[string]interface{}, vres interface{}) error {
-	result, err := bucket.View(ddoc, name, params)
+func (bucket *WalrusBucket) ViewCustom(ctx context.Context, ddoc, name string, params map[string]interface{}, vres interface{}) error {
+	result, err := bucket.View(ctx, ddoc, name, params)
 	if err != nil {
 		return err
 	}

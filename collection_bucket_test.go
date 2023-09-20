@@ -113,7 +113,7 @@ func TestValidDataStoreName(t *testing.T) {
 func TestCollectionMutations(t *testing.T) {
 
 	huddle := NewCollectionBucket("huddle1")
-	defer huddle.Close()
+	defer huddle.Close(context.TODO())
 
 	collection1, err := huddle.NamedDataStore(scopeAndCollection{"scope1", "collection1"})
 	require.NoError(t, err)
@@ -218,7 +218,7 @@ func TestGetPersistentMultiCollectionBucket(t *testing.T) {
 	assert.Equal(t, "c1_value", value)
 
 	// Close collection bucket
-	huddle.Close()
+	huddle.Close(context.TODO())
 
 	// Reopen persisted collection bucket
 	loadedHuddle, loadedErr := GetCollectionBucket(fmt.Sprintf("walrus:%s", tmpdir), "buckit")
@@ -248,7 +248,7 @@ func TestGetPersistentMultiCollectionBucket(t *testing.T) {
 	assert.Equal(t, "c2_value", loadedValue)
 
 	// Close collection bucket
-	loadedHuddle.Close()
+	loadedHuddle.Close(context.TODO())
 
 	// Reopen persisted collection bucket again to ensure dropped collection is not present
 	reloadedHuddle, reloadedErr := GetCollectionBucket(fmt.Sprintf("walrus:%s", tmpdir), "buckit")

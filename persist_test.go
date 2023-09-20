@@ -10,6 +10,7 @@
 package walrus
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -25,7 +26,7 @@ func TestSave(t *testing.T) {
 	kTestPath := filepath.Join(tmpdir, "/walrus_test_save.walrus")
 
 	bucket := NewBucket("persisty")
-	defer bucket.Close()
+	defer bucket.Close(context.TODO())
 	addToBucket(t, bucket, "key1", 0, `{"value": 1}`)
 	added, err := bucket.AddRaw("key2", 0, []byte("value2"))
 	require.NoError(t, err)
@@ -45,7 +46,7 @@ func TestSave(t *testing.T) {
 	assertNoError(t, err, "couldn't re-save")
 
 	bucket2, err = load(kTestPath)
-	defer bucket2.Close()
+	defer bucket2.Close(context.TODO())
 	assertNoError(t, err, "couldn't re-load")
 	assert.Equal(t, bucket.walrusData, bucket2.walrusData)
 }
@@ -63,12 +64,12 @@ func TestLoadOrNew(t *testing.T) {
 
 	addToBucket(t, bucket, "key9", 0, `{"value": 9}`)
 
-	bucket.Close()
+	bucket.Close(context.TODO())
 
 	bucket, err = loadOrNew(kTestPath, "walrus_test_loadOrNew")
 	assertNoError(t, err, "loadOrNew #2 failed")
 	assert.Equal(t, bucket.walrusData, bucket.walrusData)
-	bucket.Close()
+	bucket.Close(context.TODO())
 }
 
 func TestBucketURLToDir(t *testing.T) {
@@ -93,12 +94,12 @@ func TestNewPersistentBucket(t *testing.T) {
 	bucket, err := GetBucket(fmt.Sprintf("walrus:%s", tmpdir), "pool", "buckit")
 	assertNoError(t, err, "NewPersistentBucket failed")
 	assert.Equal(t, filepath.Join(tmpdir, "pool-buckit.walrus"), bucket.path)
-	bucket.Close()
+	bucket.Close(context.TODO())
 
 	bucket, err = GetBucket("./temp", "default", "buckit")
 	assertNoError(t, err, "NewPersistentBucket failed")
 	assert.Equal(t, filepath.Join("temp", "buckit.walrus"), bucket.path)
-	bucket.Close()
+	bucket.Close(context.TODO())
 }
 
 func TestWriteWithPersist(t *testing.T) {
@@ -113,6 +114,6 @@ func TestWriteWithPersist(t *testing.T) {
 	value, _, err := bucket2.GetRaw("key1")
 	assertNoError(t, err, "Get failed")
 	assert.Equal(t, "value1", string(value))
-	bucket2.Close()
-	bucket.Close()
+	bucket2.Close(context.TODO())
+	bucket.Close(context.TODO())
 }
