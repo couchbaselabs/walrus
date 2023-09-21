@@ -56,6 +56,7 @@ type WalrusCollection struct {
 
 var _ sgbucket.DataStore = &WalrusCollection{}
 var _ sgbucket.DataStoreName = &WalrusCollection{}
+var _ sgbucket.ViewStore = &WalrusCollection{}
 
 func (wh *WalrusCollection) ScopeName() string {
 	return wh.FQName.ScopeName()
@@ -108,7 +109,7 @@ func (wh *CollectionBucket) UUID() (string, error) {
 	return wh.uuid, nil
 }
 
-func (cb *CollectionBucket) Close() {
+func (cb *CollectionBucket) Close(ctx context.Context) {
 
 	collectionBucketsLock.Lock()
 	defer collectionBucketsLock.Unlock()
@@ -123,7 +124,7 @@ func (cb *CollectionBucket) Close() {
 	defer cb.lock.Unlock()
 
 	for _, store := range cb.collections {
-		store.Close()
+		store.Close(ctx)
 	}
 
 }
@@ -132,7 +133,7 @@ func (cb *CollectionBucket) Close() {
 func (cb *CollectionBucket) CloseAndDelete() error {
 
 	if cb.dir == "" {
-		cb.Close()
+		cb.Close(context.TODO())
 		return nil
 	}
 
@@ -187,6 +188,7 @@ func (wh *CollectionBucket) NamedDataStore(name sgbucket.DataStoreName) (sgbucke
 		return nil, fmt.Errorf("attempting to create/update database with a scope/collection that is %w", err)
 	}
 
+	fmt.Println("wh=", wh)
 	collection, err := wh.getOrCreateCollection(sc)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to retrieve NamedDataStore for walrus CollectionBucket: %v", err)
@@ -194,7 +196,7 @@ func (wh *CollectionBucket) NamedDataStore(name sgbucket.DataStoreName) (sgbucke
 	return collection, nil
 }
 
-func (wh *CollectionBucket) CreateDataStore(name sgbucket.DataStoreName) error {
+func (wh *CollectionBucket) CreateDataStore(_ context.Context, name sgbucket.DataStoreName) error {
 	sc, err := newValidScopeAndCollection(name.ScopeName(), name.CollectionName())
 	if err != nil {
 		return err

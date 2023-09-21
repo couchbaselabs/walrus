@@ -10,6 +10,7 @@
 package walrus
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -86,7 +87,7 @@ func NewBucket(bucketName string) *WalrusBucket {
 		vbSeqs: sgbucket.NewMapVbucketSeqCounter(SimulatedVBucketCount),
 		views:  map[string]walrusDesignDoc{},
 	}
-	runtime.SetFinalizer(bucket, (*WalrusBucket).Close)
+	runtime.SetFinalizer(bucket, (*WalrusBucket).CloseAndDelete)
 	return bucket
 }
 
@@ -184,7 +185,7 @@ func (bucket *WalrusBucket) GetName() string {
 	return bucket.name // name is immutable so this needs no lock
 }
 
-func (bucket *WalrusBucket) Close() {
+func (bucket *WalrusBucket) Close(_ context.Context) {
 	// Remove the bucket from the global 'buckets' map:
 	bucketsLock.Lock()
 	defer bucketsLock.Unlock()
@@ -209,7 +210,7 @@ func (bucket *WalrusBucket) Close() {
 
 func (bucket *WalrusBucket) CloseAndDelete() error {
 	path := bucket.path
-	bucket.Close()
+	bucket.Close(context.TODO())
 	if path == "" {
 		return nil
 	}
@@ -385,23 +386,23 @@ func (bucket *WalrusBucket) SetBulk(entries []*sgbucket.BulkSetEntry) (err error
 	return nil
 }
 
-func (bucket *WalrusBucket) WriteCasWithXattr(k string, xattrKey string, exp uint32, cas uint64, opts *sgbucket.MutateInOptions, v interface{}, xv interface{}) (casOut uint64, err error) {
+func (bucket *WalrusBucket) WriteCasWithXattr(_ context.Context, k string, xattrKey string, exp uint32, cas uint64, opts *sgbucket.MutateInOptions, v interface{}, xv interface{}) (casOut uint64, err error) {
 	return 0, errors.New("WriteCasWithXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) WriteWithXattr(k string, xattrKey string, exp uint32, cas uint64, opts *sgbucket.MutateInOptions, value []byte, xattrValue []byte, isDelete bool, deleteBody bool) (casOut uint64, err error) {
+func (bucket *WalrusBucket) WriteWithXattr(_ context.Context, k string, xattrKey string, exp uint32, cas uint64, opts *sgbucket.MutateInOptions, value []byte, xattrValue []byte, isDelete bool, deleteBody bool) (casOut uint64, err error) {
 	return 0, errors.New("WriteWithXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) GetWithXattr(k string, xattrKey string, userXattrKey string, rv interface{}, xv interface{}, uxv interface{}) (cas uint64, err error) {
+func (bucket *WalrusBucket) GetWithXattr(_ context.Context, k string, xattrKey string, userXattrKey string, rv interface{}, xv interface{}, uxv interface{}) (cas uint64, err error) {
 	return 0, errors.New("GetWithXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) DeleteWithXattr(k string, xattrKey string) error {
+func (bucket *WalrusBucket) DeleteWithXattr(_ context.Context, k string, xattrKey string) error {
 	return errors.New("DeleteWithXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) GetXattr(k string, xattrKey string, xv interface{}) (casOut uint64, err error) {
+func (bucket *WalrusBucket) GetXattr(_ context.Context, k string, xattrKey string, xv interface{}) (casOut uint64, err error) {
 	return 0, errors.New("GetXattr not implemented for walrus")
 }
 
@@ -416,7 +417,7 @@ func subdocKeyNesting(subDocKey string) (nesting bool) {
 }
 
 // GetSubDocRaw Walrus implementation only works with a top-level subdocKey
-func (bucket *WalrusBucket) GetSubDocRaw(k string, subdocKey string) (value []byte, casOut uint64, err error) {
+func (bucket *WalrusBucket) GetSubDocRaw(_ context.Context, k string, subdocKey string) (value []byte, casOut uint64, err error) {
 	if subdocKeyNesting(subdocKey) {
 		panic("walrus implementation of GetSubDocRaw does not support subdoc nesting")
 	}
@@ -437,7 +438,7 @@ func (bucket *WalrusBucket) GetSubDocRaw(k string, subdocKey string) (value []by
 }
 
 // WriteSubDoc Walrus implementation only works with a top-level subdocKey
-func (bucket *WalrusBucket) WriteSubDoc(k string, subdocKey string, cas uint64, value []byte) (casOut uint64, err error) {
+func (bucket *WalrusBucket) WriteSubDoc(_ context.Context, k string, subdocKey string, cas uint64, value []byte) (casOut uint64, err error) {
 	if subdocKeyNesting(subdocKey) {
 		panic("walrus implementation of WriteSubDoc does not support subdoc nesting")
 	}
@@ -465,23 +466,23 @@ func (bucket *WalrusBucket) WriteSubDoc(k string, subdocKey string, cas uint64, 
 	return casOut, nil
 }
 
-func (bucket *WalrusBucket) WriteUpdateWithXattr(k string, xattrKey string, userXattrKey string, exp uint32, opts *sgbucket.MutateInOptions, previous *sgbucket.BucketDocument, callback sgbucket.WriteUpdateWithXattrFunc) (casOut uint64, err error) {
+func (bucket *WalrusBucket) WriteUpdateWithXattr(_ context.Context, k string, xattrKey string, userXattrKey string, exp uint32, opts *sgbucket.MutateInOptions, previous *sgbucket.BucketDocument, callback sgbucket.WriteUpdateWithXattrFunc) (casOut uint64, err error) {
 	return 0, errors.New("WriteUpdateWithXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) SetXattr(k string, xattrKey string, xv []byte) (casOut uint64, err error) {
+func (bucket *WalrusBucket) SetXattr(_ context.Context, k string, xattrKey string, xv []byte) (casOut uint64, err error) {
 	return 0, errors.New("SetXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) RemoveXattr(k string, xattrKey string, cas uint64) error {
+func (bucket *WalrusBucket) RemoveXattr(_ context.Context, k string, xattrKey string, cas uint64) error {
 	return errors.New("RemoveXattr not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) DeleteXattrs(k string, xattrKeys ...string) error {
+func (bucket *WalrusBucket) DeleteXattrs(_ context.Context, k string, xattrKeys ...string) error {
 	return errors.New("DeleteXattrs not implemented for walrus")
 }
 
-func (bucket *WalrusBucket) SubdocInsert(docID string, fieldPath string, cas uint64, value interface{}) error {
+func (bucket *WalrusBucket) SubdocInsert(_ context.Context, docID string, fieldPath string, cas uint64, value interface{}) error {
 	return errors.New("SubdocInsert not implemented for walrus")
 }
 
@@ -808,7 +809,7 @@ func (bucket *WalrusBucket) IsSupported(feature sgbucket.BucketStoreFeature) boo
 	}
 }
 
-func (bucket *WalrusBucket) GetExpiry(k string) (expiry uint32, getMetaError error) {
+func (bucket *WalrusBucket) GetExpiry(_ context.Context, k string) (expiry uint32, getMetaError error) {
 	// Walrus does not support expiry, and treats all expiry operations as a noop
 	return 0, errors.New("Walrus does not support document expiry")
 }

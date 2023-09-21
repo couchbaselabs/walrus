@@ -64,7 +64,7 @@ func load(path string) (*WalrusBucket, error) {
 			return nil, err
 		}
 	}
-	runtime.SetFinalizer(bucket, (*WalrusBucket).Close)
+	runtime.SetFinalizer(bucket, (*WalrusBucket).CloseAndDelete)
 	logg("Loaded bucket from %s", path)
 	return bucket, nil
 }
